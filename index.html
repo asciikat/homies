@@ -1,0 +1,2121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d0a14">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Homies">
+<meta name="description" content="Keep your crew close: a GTA-style radar of your people.">
+<title>Homies</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@800;900&family=Barlow+Condensed:wght@500;600;700;800&family=Barlow:wght@500;600;700&display=swap">
+<style>
+/* Layout: a sticky game HUD on top. Below it three things side by side on desktop:
+   today's contact mission + your respect on the left, the radar in the middle,
+   and your phone (the contact list) on the right. Phones stack them: mission,
+   radar, phone, respect. Tapping anyone opens their dossier as a side sheet.
+   Same night-city world as Mission Possible, so it can live in there as a tab. */
+:root {
+  color-scheme: dark;
+  --night: #0d0a14;
+  --asphalt: #16111f;
+  --asphalt-hi: #1f1830;
+  --line: rgba(236, 222, 255, 0.10);
+  --line-2: rgba(236, 222, 255, 0.2);
+  --ink: #f7f2ff;
+  --smog: #a69cbc;
+  --dim: #6f6686;
+  --shade: #05040a;
+  --neon: #ff3d7f;
+  --flare: #ff9b3d;
+  --gold: #ffd166;
+  --palm: #2ee6c8;
+  --cash: #7cf29a;
+  --siren-r: #ff3349;
+  --siren-b: #3d7bff;
+  --dusk: #9a6bff;
+  --z-close: #ffd166;
+  --z-orbit: #2ee6c8;
+  --z-drift: #4b9bff;
+  --z-far: #9a6bff;
+  --font-display: "Big Shoulders Display", "Anton", Impact, "Arial Narrow Bold", sans-serif;
+  --font-hud: "Barlow Condensed", "Roboto Condensed", "Arial Narrow", sans-serif;
+  --font-body: "Barlow", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --snap: cubic-bezier(.2, 1.3, .4, 1);
+  --glide: cubic-bezier(.2, .8, .2, 1);
+  --hud-h: 66px;
+}
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; background: var(--night); }
+body {
+  margin: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--night);
+  color: var(--ink);
+  font: 500 16px/1.45 var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  overflow-x: hidden;
+}
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(110% 55% at 85% -10%, rgba(255, 61, 127, .16), transparent 60%),
+    radial-gradient(80% 45% at -10% 0%, rgba(110, 60, 255, .14), transparent 60%),
+    radial-gradient(70% 40% at 50% 110%, rgba(46, 230, 200, .06), transparent 70%);
+}
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  pointer-events: none;
+  opacity: .05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+body.embed::after { display: none; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { touch-action: manipulation; }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.sr { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; margin: -1px; padding: 0; border: 0; }
+.ico { width: 1.15em; height: 1.15em; flex: none; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; vertical-align: -.2em; }
+* { scrollbar-width: thin; scrollbar-color: rgba(236, 222, 255, .2) transparent; }
+
+.eyebrow { margin: 0; font: 700 12.5px/1.1 var(--font-hud); letter-spacing: .16em; text-transform: uppercase; color: var(--smog); }
+.fine { margin: 0; font-size: 14px; color: var(--dim); line-height: 1.45; }
+.muted { color: var(--smog); }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+/* ── HUD ── */
+.hud {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  padding-top: env(safe-area-inset-top, 0px);
+  background: linear-gradient(180deg, rgba(13, 10, 20, .95), rgba(13, 10, 20, .82));
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(14px) saturate(140%);
+  border-bottom: 1px solid var(--line);
+}
+.hud-inner { max-width: 1400px; margin: 0 auto; min-height: var(--hud-h); padding: 10px 16px; display: flex; align-items: center; gap: 12px; }
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.brand svg { width: 36px; height: 36px; flex: none; }
+.wordmark {
+  font: 900 31px/.9 var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: .02em;
+  background: linear-gradient(180deg, #fff4c8 8%, var(--gold) 50%, var(--flare) 96%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-stroke: 1.2px var(--shade);
+  filter: drop-shadow(2px 3px 0 rgba(255, 61, 127, .85));
+}
+.tagline { font: 700 12.5px/1.15 var(--font-hud); letter-spacing: .16em; text-transform: uppercase; color: var(--dim); max-width: 14em; }
+@media (max-width: 900px) { .tagline { display: none; } }
+.rep-pill {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 4px 12px 4px 4px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, .03);
+  cursor: pointer;
+  text-align: left;
+}
+.rep-pill:hover { border-color: var(--line-2); }
+.rank-badge {
+  flex: none;
+  width: 36px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+  background: linear-gradient(160deg, var(--gold), var(--flare));
+  color: var(--shade);
+  font: 900 18px/1 var(--font-display);
+}
+.rp-text { display: grid; min-width: 0; }
+.rp-rank { font: 800 15px/1.1 var(--font-hud); letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rp-rep { font: 600 13px/1.2 var(--font-hud); letter-spacing: .1em; text-transform: uppercase; color: var(--smog); }
+.rp-rep b { color: var(--gold); font-size: 15px; font-variant-numeric: tabular-nums; }
+.hud-actions { display: flex; gap: 8px; align-items: center; }
+.hud-btn { display: inline-grid; place-items: center; width: 42px; height: 42px; border: 1px solid var(--line); background: rgba(255, 255, 255, .03); color: var(--smog); cursor: pointer; }
+.hud-btn .ico { width: 20px; height: 20px; }
+.hud-btn:hover { color: var(--ink); border-color: var(--line-2); }
+.safe-btn { display: inline-flex; align-items: center; gap: 8px; min-height: 42px; padding: 0 12px; border: 1px solid var(--line); background: rgba(255, 255, 255, .03); color: var(--smog); cursor: pointer; font: 700 14px/1 var(--font-hud); letter-spacing: .12em; text-transform: uppercase; }
+.safe-btn .ico { width: 19px; height: 19px; }
+.safe-btn:hover { color: var(--ink); border-color: var(--line-2); }
+.safe-btn[aria-pressed="true"] { color: var(--shade); background: var(--palm); border-color: var(--palm); }
+@media (max-width: 560px) {
+  .wordmark { font-size: 25px; }
+  .brand svg { width: 30px; height: 30px; }
+  .safe-btn span { display: none; }
+  .safe-btn { width: 42px; padding: 0; justify-content: center; }
+  .rp-rank { font-size: 13.5px; }
+  .hud-inner { gap: 8px; padding-inline: 12px; }
+}
+
+/* ── layout ── */
+.city {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 16px 16px calc(env(safe-area-inset-bottom, 0px) + 28px);
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "mission" "radar" "phone" "rep";
+}
+.mission { grid-area: mission; }
+.radar-card { grid-area: radar; }
+.phone-col { grid-area: phone; }
+.rep-card { grid-area: rep; }
+@media (min-width: 760px) {
+  .city { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "radar radar" "mission phone" "rep phone"; align-items: start; }
+}
+@media (min-width: 1140px) {
+  .city { grid-template-columns: 340px minmax(0, 1fr) 380px; grid-template-areas: "mission radar phone" "rep radar phone"; grid-template-rows: auto 1fr; }
+  .radar-card, .phone-col { position: sticky; top: calc(var(--hud-h) + env(safe-area-inset-top, 0px) + 16px); }
+  .radar-card { grid-row: 1 / span 2; }
+  .phone-col { grid-row: 1 / span 2; }
+  .phone-screen { max-height: calc(100dvh - var(--hud-h) - env(safe-area-inset-top, 0px) - 70px); }
+}
+
+.card {
+  position: relative;
+  background: linear-gradient(180deg, var(--asphalt), #120d1b);
+  border: 1px solid var(--line);
+  padding: 16px;
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 18px), calc(100% - 18px) 100%, 0 100%);
+}
+.card-head { display: flex; align-items: center; gap: 12px; }
+.card-title { margin: 2px 0 0; font: 900 30px/.9 var(--font-display); letter-spacing: .01em; text-transform: uppercase; }
+
+/* ── buttons & fields ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 255, 255, .18);
+  background: rgba(255, 255, 255, .04);
+  color: var(--ink);
+  font: 700 14px/1 var(--font-hud);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  text-decoration: none;
+}
+.btn:hover { border-color: rgba(255, 255, 255, .34); background: rgba(255, 255, 255, .07); }
+.btn:disabled { opacity: .5; cursor: default; }
+.btn .ico { width: 18px; height: 18px; }
+.btn.primary { border: 0; background: var(--neon); color: var(--shade); font-weight: 800; clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%); }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.ghost { border-color: transparent; background: transparent; color: var(--smog); }
+.btn.ghost:hover { color: var(--ink); border-color: var(--line); background: rgba(255, 255, 255, .04); }
+.btn.small { min-height: 36px; padding: 0 11px; font-size: 13px; }
+.btn.danger { border-color: rgba(255, 51, 73, .55); color: #ff6b7a; background: rgba(255, 51, 73, .06); }
+.btn.solid-danger { border: 0; background: var(--siren-r); color: var(--ink); }
+.btn.palm { border-color: rgba(46, 230, 200, .55); color: var(--palm); }
+.field {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  background: var(--asphalt-hi);
+  color: var(--ink);
+  font: 600 16px/1.3 var(--font-body);
+  border-radius: 0;
+}
+.field:focus { outline: none; border-color: rgba(255, 61, 127, .7); box-shadow: 0 0 0 3px rgba(255, 61, 127, .14); }
+.field::placeholder { color: var(--dim); }
+select.field { background-color: var(--asphalt-hi); }
+textarea.field { resize: vertical; line-height: 1.45; }
+.icon-btn { display: inline-grid; place-items: center; width: 40px; height: 40px; border: 1px solid transparent; background: transparent; color: var(--smog); cursor: pointer; flex: none; }
+.icon-btn:hover { background: rgba(255, 255, 255, .05); color: var(--ink); border-color: var(--line); }
+.icon-btn.sm { width: 34px; height: 34px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, .035);
+  color: var(--ink);
+  font: 700 15px/1 var(--font-hud);
+  letter-spacing: .04em;
+  cursor: pointer;
+  text-align: left;
+}
+.chip:hover { border-color: var(--k, var(--neon)); background: color-mix(in srgb, var(--k, var(--neon)) 12%, transparent); }
+.chip[aria-pressed="true"], .chip[aria-checked="true"] { border-color: var(--k, var(--neon)); background: color-mix(in srgb, var(--k, var(--neon)) 20%, transparent); }
+.chip.small { min-height: 34px; padding: 0 10px; font-size: 14px; }
+.chip .ico { color: var(--k, var(--neon)); }
+.chip .rep { font: 700 12px/1 var(--font-hud); color: var(--gold); letter-spacing: .04em; opacity: .85; }
+.chip.liked::after { content: ""; width: 6px; height: 6px; background: var(--palm); transform: rotate(45deg); margin-left: 2px; }
+
+/* blips used as avatars: flat colour, a hard shadow crescent and a dark rim */
+.avatar {
+  --sz: 46px;
+  position: relative;
+  width: var(--sz);
+  height: var(--sz);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex: none;
+  background: hsl(var(--h) 82% 62%);
+  box-shadow: inset calc(var(--sz) * -.15) calc(var(--sz) * -.15) 0 hsl(var(--h) 70% 42%), 0 0 0 2px var(--shade);
+  color: #07040c;
+  font: 800 calc(var(--sz) * .42)/1 var(--font-hud);
+  letter-spacing: .02em;
+}
+.avatar.safe::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 2px solid var(--palm); }
+.avatar.resting { filter: saturate(.25) brightness(.8); }
+
+/* ── contact mission ── */
+.mission { border-color: rgba(255, 61, 127, .3); }
+.call-ico { display: grid; place-items: center; width: 44px; height: 44px; flex: none; border-radius: 50%; background: var(--neon); color: var(--shade); }
+.call-ico .ico { width: 22px; height: 22px; stroke-width: 2.2; }
+.mission.ringing .call-ico { animation: ring 1.6s ease-in-out infinite; }
+@keyframes ring { 0%, 60%, 100% { transform: rotate(0); } 5%, 15%, 25% { transform: rotate(-14deg); } 10%, 20%, 30% { transform: rotate(14deg); } }
+.fuel-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.fuel { display: flex; gap: 3px; }
+.fuel-btn {
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  min-width: 56px;
+  min-height: 48px;
+  padding: 6px 4px 4px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, .03);
+  cursor: pointer;
+  color: var(--dim);
+  font: 700 12px/1 var(--font-hud);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.fuel-btn svg { width: 30px; height: 14px; }
+.fuel-btn rect { fill: rgba(255, 255, 255, .14); }
+.fuel-btn rect.on { fill: var(--siren-b); }
+.fuel-btn:hover { color: var(--ink); border-color: var(--line-2); }
+.fuel-btn[aria-checked="true"] { color: var(--ink); border-color: var(--siren-b); background: rgba(61, 123, 255, .14); }
+.mission-body { display: grid; gap: 14px; }
+.t-who { display: flex; gap: 14px; align-items: center; background: none; border: 0; padding: 0; cursor: pointer; text-align: left; color: inherit; }
+.t-name { display: block; font: 900 34px/.95 var(--font-display); text-transform: uppercase; letter-spacing: .01em; }
+.t-meta { display: block; color: var(--smog); font-size: 15px; margin-top: 4px; }
+.t-status { margin: 0; font-size: 15.5px; color: var(--smog); }
+.t-status b { color: var(--zc, var(--ink)); font: 800 14.5px/1 var(--font-hud); letter-spacing: .1em; text-transform: uppercase; margin-right: 4px; }
+.t-lines { display: grid; gap: 6px; margin: 0; padding: 10px 12px; list-style: none; background: rgba(255, 255, 255, .03); border: 1px solid var(--line); }
+.t-lines li { display: flex; gap: 10px; align-items: baseline; font-size: 15.5px; }
+.t-lines .k { font: 700 12px/1 var(--font-hud); letter-spacing: .16em; text-transform: uppercase; color: var(--dim); flex: none; min-width: 6.4em; }
+.t-do { display: grid; gap: 8px; }
+.t-do .q { margin: 0; font: 800 17px/1.1 var(--font-hud); letter-spacing: .08em; text-transform: uppercase; }
+.t-do .q span { display: block; margin-top: 3px; font: 500 14.5px/1.35 var(--font-body); letter-spacing: 0; text-transform: none; color: var(--smog); }
+.t-done { display: grid; gap: 4px; margin: 0; }
+.passed { font: 900 40px/.85 var(--font-display); text-transform: uppercase; background: linear-gradient(180deg, #fff4c8 8%, var(--gold) 50%, var(--flare) 96%); -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-stroke: 1.2px var(--shade); transform: rotate(-3deg); transform-origin: left; display: inline-block; }
+.soft-empty { margin: 0; color: var(--smog); }
+
+/* ── radar ── */
+.radar-card { gap: 12px; }
+.radar-head { justify-content: space-between; flex-wrap: wrap; }
+.radar-hint { margin: 0; font: 600 13px/1.3 var(--font-hud); letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+.radar-stage { width: 100%; max-width: max(300px, min(100%, calc(100dvh - var(--hud-h) - 210px))); margin: 0 auto; display: grid; gap: 8px; }
+.radar-wrap { position: relative; width: 100%; aspect-ratio: 1; }
+#radar { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: manipulation; }
+.radar-empty { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(300px, 76%); text-align: center; padding: 14px 16px; background: rgba(13, 10, 20, .86); border: 1px solid var(--line-2); display: grid; gap: 10px; justify-items: center; }
+.radar-empty p { margin: 0; }
+.hud-bars { display: grid; grid-template-columns: 3fr 2fr; gap: 6px; }
+.hbar { display: grid; gap: 4px; }
+.hbar-track { height: 9px; background: rgba(5, 4, 10, .9); border: 2px solid var(--shade); outline: 1px solid rgba(255, 255, 255, .08); }
+.hbar-fill { height: 100%; width: 0; transition: width .6s var(--glide); }
+.hbar.rep .hbar-fill { background: linear-gradient(90deg, #4bc06a, var(--cash)); }
+.hbar.fuel .hbar-fill { background: linear-gradient(90deg, #2b5fd9, #6aa2ff); }
+.hbar-l { display: flex; justify-content: space-between; gap: 6px; font: 700 11.5px/1 var(--font-hud); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+.hbar-l span:last-child { color: var(--smog); text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.legend { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.zchip { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 11px; border: 1px solid var(--line); background: rgba(255, 255, 255, .03); cursor: pointer; font: 700 13.5px/1 var(--font-hud); letter-spacing: .1em; text-transform: uppercase; color: var(--smog); }
+.zchip:hover { color: var(--ink); border-color: var(--line-2); }
+.zchip[aria-pressed="true"] { color: var(--ink); border-color: var(--zc); background: color-mix(in srgb, var(--zc) 16%, transparent); }
+.zchip .n { font-variant-numeric: tabular-nums; color: var(--ink); }
+.zdot { width: 9px; height: 9px; flex: none; background: var(--zc); transform: rotate(45deg); }
+.z-close { --zc: var(--z-close); } .z-orbit { --zc: var(--z-orbit); } .z-drift { --zc: var(--z-drift); } .z-far { --zc: var(--z-far); }
+.tip { position: fixed; left: 0; top: 0; z-index: 45; pointer-events: none; background: rgba(13, 10, 20, .96); border: 1px solid var(--line-2); padding: 8px 12px; font-size: 14.5px; line-height: 1.35; white-space: nowrap; }
+.tip b { display: block; font: 800 18px/1.1 var(--font-hud); letter-spacing: .04em; text-transform: uppercase; }
+.tip span { color: var(--smog); }
+
+/* ── phone ── */
+.phone {
+  position: relative;
+  padding: 10px 10px 12px;
+  border-radius: 30px;
+  background: linear-gradient(160deg, #241c35, #0b0812 60%);
+  border: 1px solid rgba(236, 222, 255, .16);
+  box-shadow: 0 0 0 4px #07050c, 0 24px 60px -24px rgba(255, 61, 127, .35);
+}
+.phone-status { display: flex; align-items: center; justify-content: space-between; padding: 2px 16px 8px; font: 700 13px/1 var(--font-hud); letter-spacing: .08em; color: var(--smog); }
+.notch { width: 82px; height: 18px; border-radius: 10px; background: #050308; }
+.sig { display: inline-flex; gap: 6px; align-items: center; }
+.sig i { display: inline-block; width: 3px; background: var(--smog); margin-left: 1px; }
+.phone-screen { border-radius: 22px; background: var(--asphalt); border: 1px solid var(--line); display: flex; flex-direction: column; overflow: hidden; }
+.app-head { display: flex; align-items: center; gap: 10px; padding: 14px 16px 12px; background: linear-gradient(180deg, rgba(255, 61, 127, .14), transparent); border-bottom: 1px solid var(--line); flex: none; }
+.app-head h2 { margin: 0; flex: 1; font: 900 28px/.9 var(--font-display); text-transform: uppercase; }
+.app-head .count { margin-left: 8px; font: 700 15px/1 var(--font-hud); color: var(--smog); letter-spacing: .06em; vertical-align: 4px; }
+.app-body { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 14px; display: grid; gap: 12px; align-content: start; }
+.app-foot { flex: none; display: flex; gap: 8px 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 8px 12px; border-top: 1px solid var(--line); }
+.add { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.add .how { grid-column: 1 / -1; }
+.dump { display: grid; gap: 8px; padding: 12px; border: 1px dashed var(--line-2); }
+.banner { display: grid; gap: 8px; justify-items: start; padding: 10px 12px; border: 1px solid rgba(255, 209, 102, .4); background: rgba(255, 209, 102, .08); font-size: 14.5px; }
+.banner p { margin: 0; }
+.toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.search { position: relative; min-width: 0; }
+.search .ico { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--dim); }
+.search .field { padding-left: 38px; }
+.toolbar select.field { width: auto; max-width: 11em; }
+.filter-note { margin: 0; font-size: 14.5px; color: var(--smog); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.zone-h { display: flex; align-items: center; gap: 10px; margin: 6px 0 4px; padding-bottom: 6px; border-bottom: 1px solid color-mix(in srgb, var(--zc) 45%, transparent); }
+.zone-h h3 { margin: 0; font: 800 15px/1 var(--font-hud); letter-spacing: .16em; text-transform: uppercase; color: var(--zc); }
+.zone-h p { margin: 0; font-size: 13.5px; color: var(--dim); }
+.zone-h .n { margin-left: auto; font: 700 14px/1 var(--font-hud); color: var(--smog); }
+.list { display: grid; gap: 4px; }
+.prow { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 2px; padding: 3px 3px 3px 5px; border: 1px solid transparent; background: rgba(255, 255, 255, .03); }
+.prow:hover { background: rgba(255, 61, 127, .06); border-color: rgba(255, 61, 127, .25); }
+.prow.flash { animation: ping 1.2s ease; }
+@keyframes ping { 0% { border-color: hsl(var(--h) 82% 62%); background: hsl(var(--h) 82% 62% / .2); } 100% { border-color: transparent; } }
+.p-open { display: flex; gap: 12px; align-items: center; min-width: 0; background: none; border: 0; padding: 6px 4px; cursor: pointer; text-align: left; color: inherit; }
+.p-dot { width: 24px; height: 24px; border-radius: 50%; flex: none; position: relative; background: hsl(var(--h) 82% 62%); box-shadow: inset -4px -4px 0 hsl(var(--h) 70% 42%), 0 0 0 2px var(--shade); }
+.p-dot.safe::after { content: ""; position: absolute; inset: -5px; border-radius: 50%; border: 1.5px solid var(--palm); }
+.p-text { display: grid; min-width: 0; }
+.p-name { font: 800 18px/1.15 var(--font-hud); letter-spacing: .03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.p-pron { font: 500 13px/1 var(--font-body); color: var(--dim); letter-spacing: 0; }
+.p-sub { font-size: 14px; color: var(--smog); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.p-sub .bd { color: var(--gold); }
+.prow .icon-btn { color: var(--dim); }
+.prow .icon-btn:hover { color: var(--ink); }
+.prow .icon-btn.th:hover { color: var(--gold); border-color: rgba(255, 209, 102, .45); background: rgba(255, 209, 102, .1); }
+.prow .icon-btn[aria-expanded="true"] { color: var(--neon); border-color: rgba(255, 61, 127, .4); background: rgba(255, 61, 127, .1); }
+.p-logrow { grid-column: 1 / -1; display: flex; gap: 6px; flex-wrap: wrap; padding: 4px 2px 6px; }
+.tag { font: 800 11px/1 var(--font-hud); letter-spacing: .14em; text-transform: uppercase; padding: 2px 6px; border: 1px solid rgba(255, 209, 102, .45); color: var(--gold); vertical-align: 2px; margin-left: 4px; }
+.resting summary { cursor: pointer; display: flex; align-items: center; gap: 8px; min-height: 40px; list-style: none; font: 800 15px/1 var(--font-hud); letter-spacing: .16em; text-transform: uppercase; color: var(--dusk); }
+.resting summary::-webkit-details-marker { display: none; }
+.resting > p { margin: 0 0 8px; }
+.prow.is-resting { opacity: .75; }
+.status { display: flex; gap: 8px; align-items: center; font-size: 13.5px; color: var(--smog); margin: 0; }
+.status .dot { width: 8px; height: 8px; background: var(--palm); transform: rotate(45deg); flex: none; }
+.status.bad .dot { background: var(--siren-r); }
+.keys { font-size: 13px; color: var(--dim); margin: 0; }
+kbd { font: 700 12px/1 var(--font-hud); border: 1px solid var(--line-2); padding: 1px 5px; color: var(--ink); }
+@media (hover: none) { .keys { display: none; } }
+
+/* ── respect ── */
+.rep-big { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.rep-n { margin: 0; font: 900 56px/.85 var(--font-display); color: var(--gold); font-variant-numeric: tabular-nums; }
+.rep-n small { font: 700 15px/1 var(--font-hud); letter-spacing: .16em; text-transform: uppercase; color: var(--smog); margin-left: 6px; }
+.rep-rank { margin: 0; font: 800 20px/1.1 var(--font-hud); letter-spacing: .08em; text-transform: uppercase; }
+.rep-next { margin: 0; font-size: 14.5px; color: var(--smog); }
+.week { margin: 0; font-size: 15px; }
+.week b { color: var(--cash); font-family: var(--font-hud); font-size: 17px; }
+.upcoming { display: grid; gap: 2px; border-top: 1px solid var(--line); padding-top: 10px; }
+.up-item { display: flex; gap: 10px; align-items: center; background: none; border: 0; padding: 6px 0; cursor: pointer; text-align: left; color: inherit; font-size: 15px; }
+.up-item .ico { color: var(--gold); }
+.ladder summary { cursor: pointer; font: 700 13px/1 var(--font-hud); letter-spacing: .16em; text-transform: uppercase; color: var(--smog); min-height: 34px; display: flex; align-items: center; }
+.ladder ol { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; }
+.ladder li { display: flex; justify-content: space-between; gap: 10px; padding: 6px 10px; background: rgba(255, 255, 255, .03); font: 700 15px/1.1 var(--font-hud); letter-spacing: .06em; text-transform: uppercase; color: var(--dim); }
+.ladder li.got { color: var(--ink); }
+.ladder li.got span:last-child { color: var(--gold); }
+.ladder li.now { outline: 1px solid var(--gold); }
+.respect-note { margin: 0; font-size: 14px; color: var(--dim); }
+
+/* ── safehouse (hard day) ── */
+body.safehouse .city { display: none; }
+.safehouse { max-width: 620px; margin: 24px auto; padding: 0 16px calc(env(safe-area-inset-bottom, 0px) + 28px); }
+.safehouse .card { border-color: rgba(46, 230, 200, .35); gap: 16px; }
+.safehouse h2 { margin: 0; font: 900 44px/.9 var(--font-display); text-transform: uppercase; color: var(--palm); }
+.safehouse h3 { margin: 0; font: 800 22px/1.15 var(--font-hud); letter-spacing: .04em; }
+.safehouse p { margin: 0; }
+.h-person { display: flex; align-items: center; gap: 10px; justify-content: space-between; padding: 8px 0; border-top: 1px solid var(--line); }
+.h-open { display: flex; gap: 12px; align-items: center; background: none; border: 0; padding: 0; cursor: pointer; text-align: left; color: inherit; min-width: 0; }
+.h-open b { display: block; font: 800 19px/1.1 var(--font-hud); letter-spacing: .03em; }
+.quote { padding: 12px 14px; border: 1px solid rgba(46, 230, 200, .35); background: rgba(46, 230, 200, .08); font-size: 16px; }
+
+/* ── dossier ── */
+.scrim { position: fixed; inset: 0; z-index: 48; background: rgba(5, 4, 10, .6); }
+@media (min-width: 900px) { .scrim { background: rgba(5, 4, 10, .35); } }
+.drawer {
+  position: fixed;
+  z-index: 50;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: min(500px, 100%);
+  display: flex;
+  flex-direction: column;
+  background: #120d1b;
+  border-left: 1px solid var(--line-2);
+  box-shadow: -30px 0 80px -30px rgba(0, 0, 0, .8);
+  animation: slidein .24s var(--glide);
+  padding-top: env(safe-area-inset-top, 0px);
+}
+@keyframes slidein { from { transform: translateX(30px); opacity: 0; } }
+@keyframes slideup { from { transform: translateY(40px); opacity: 0; } }
+@media (max-width: 760px) {
+  .drawer { top: auto; left: 0; width: auto; max-height: 92vh; max-height: 92dvh; border-left: 0; border-top: 1px solid var(--line-2); border-radius: 16px 16px 0 0; animation-name: slideup; }
+}
+.d-top { display: flex; align-items: center; gap: 10px; padding: 10px 10px 10px 18px; border-bottom: 1px solid var(--line); flex: none; }
+.d-top .eyebrow { flex: 1; color: var(--neon); }
+.d-scroll { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 0 18px calc(env(safe-area-inset-bottom, 0px) + 24px); }
+.d-head { display: flex; gap: 16px; align-items: center; padding: 18px 0 14px; }
+.d-id { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.d-name { width: 100%; font: 900 34px/1 var(--font-display); text-transform: uppercase; letter-spacing: .01em; border: 1px solid transparent; background: transparent; padding: 2px 6px; margin-left: -6px; }
+.d-name:hover, .bare:hover { border-color: var(--line); }
+.d-name:focus, .bare:focus { border-color: rgba(255, 61, 127, .7); background: var(--asphalt-hi); outline: none; }
+.d-sub { display: flex; gap: 6px; flex-wrap: wrap; }
+.bare { min-width: 0; border: 1px solid transparent; background: transparent; padding: 3px 6px; margin-left: -6px; font-size: 15px; color: var(--smog); }
+.bare.pron { width: 9.5em; }
+.bare.grow { flex: 1 1 12em; }
+.bare::placeholder { color: var(--dim); }
+.d-example { margin: 0 0 12px; padding: 10px 12px; border: 1px solid rgba(255, 209, 102, .4); background: rgba(255, 209, 102, .08); font-size: 14.5px; }
+.d-status { display: grid; gap: 6px; padding: 12px 14px; background: rgba(255, 255, 255, .03); border: 1px solid var(--line); border-left: 3px solid var(--zc, var(--line)); }
+.d-status p { margin: 0; }
+.d-status b { font: 800 15px/1 var(--font-hud); letter-spacing: .12em; text-transform: uppercase; color: var(--zc, var(--ink)); }
+.d-sec { padding-block: 16px; border-top: 1px solid var(--line); display: grid; gap: 10px; }
+.d-sec:first-of-type { margin-top: 14px; }
+.d-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px 12px; }
+.d-grid > div { display: grid; gap: 6px; min-width: 0; align-content: start; }
+@media (max-width: 480px) { .d-grid { grid-template-columns: minmax(0, 1fr); } }
+.bd-pick { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 6px; }
+.ideas { display: grid; gap: 6px; }
+.idea { display: flex; gap: 10px; align-items: flex-start; justify-content: space-between; padding: 10px 8px 10px 13px; background: rgba(61, 123, 255, .1); border: 1px solid rgba(61, 123, 255, .3); border-radius: 14px 14px 14px 3px; }
+.idea p { margin: 0; font-size: 15.5px; overflow-wrap: anywhere; user-select: text; }
+.lst { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.lst li { display: flex; gap: 8px; align-items: center; justify-content: space-between; padding: 3px 3px 3px 12px; background: rgba(255, 255, 255, .035); overflow-wrap: anywhere; }
+.add-line { display: flex; gap: 6px; }
+.swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+.swatch { width: 34px; height: 34px; border-radius: 50%; border: 0; cursor: pointer; background: hsl(var(--h) 82% 62%); box-shadow: inset -6px -6px 0 hsl(var(--h) 70% 42%), 0 0 0 2px var(--shade); }
+.swatch[aria-pressed="true"] { outline: 2px solid var(--gold); outline-offset: 3px; }
+.switch-row { display: flex; gap: 14px; align-items: center; justify-content: space-between; }
+.sw-t { margin: 0 0 2px; font: 800 18px/1.1 var(--font-hud); letter-spacing: .04em; display: flex; gap: 8px; align-items: center; }
+.switch { position: relative; width: 50px; height: 28px; border: 1px solid var(--line-2); background: rgba(255, 255, 255, .08); cursor: pointer; flex: none; padding: 0; }
+.switch .knob { position: absolute; top: 4px; left: 4px; width: 18px; height: 18px; background: var(--smog); transition: transform .18s, background .18s; }
+.switch[aria-checked="true"] { background: rgba(46, 230, 200, .25); border-color: var(--palm); }
+.switch[aria-checked="true"] .knob { transform: translateX(22px); background: var(--palm); }
+.timeline { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.tl { display: flex; gap: 12px; align-items: flex-start; padding: 6px 0; }
+.tl-ico { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid color-mix(in srgb, var(--k) 55%, transparent); color: var(--k); flex: none; }
+.tl-body { flex: 1; min-width: 0; }
+.tl-body p { margin: 0; }
+.tl-body b { font: 800 16.5px/1.2 var(--font-hud); letter-spacing: .03em; }
+.tl time { color: var(--dim); font-size: 14px; margin-left: 6px; }
+.tl-rep { font: 700 13px/1 var(--font-hud); color: var(--gold); margin-left: 6px; }
+.tl-note { color: var(--smog); font-size: 15px; overflow-wrap: anywhere; }
+.note-form { display: grid; gap: 8px; padding: 12px; border: 1px solid rgba(46, 230, 200, .35); background: rgba(46, 230, 200, .07); }
+.note-form label { font: 800 16px/1.1 var(--font-hud); letter-spacing: .04em; }
+.d-danger { justify-items: start; }
+.d-danger p { margin: 0; }
+
+/* ── mission passed overlay ── */
+.overlay { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; background: rgba(5, 4, 10, .55); cursor: pointer; overflow: hidden; text-align: center; padding: 0 12px; }
+.overlay::before, .overlay::after { content: ""; position: absolute; left: 0; right: 0; z-index: 1; height: 13vh; background: var(--shade); transform: scaleY(0); transition: transform .45s cubic-bezier(.7, 0, .2, 1); }
+.overlay::before { top: 0; transform-origin: top; }
+.overlay::after { bottom: 0; transform-origin: bottom; }
+.overlay.is-on::before, .overlay.is-on::after { transform: scaleY(1); }
+.ov-flash { position: absolute; inset: 0; background: radial-gradient(60% 50% at 50% 50%, rgba(255, 209, 102, .5), transparent 70%); opacity: 0; }
+.overlay.is-on .ov-flash { animation: flash .9s .38s ease-out; }
+@keyframes flash { 0% { opacity: 0; } 15% { opacity: 1; } 100% { opacity: 0; } }
+.ov-inner { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.ov-kicker { font: 800 clamp(14px, 3.6vw, 22px)/1 var(--font-hud); letter-spacing: .42em; text-transform: uppercase; color: var(--gold); opacity: 0; }
+.ov-stamp-wrap { filter: drop-shadow(7px 9px 0 rgba(255, 61, 127, .9)); }
+.ov-stamp { display: block; font: 900 clamp(64px, 17vw, 200px)/.82 var(--font-display); text-transform: uppercase; white-space: nowrap; background: linear-gradient(180deg, #fff4c8 8%, var(--gold) 48%, var(--flare) 96%); -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-stroke: 3px var(--shade); opacity: 0; }
+.ov-sub { font: 700 clamp(15px, 3.6vw, 22px)/1.3 var(--font-hud); letter-spacing: .14em; text-transform: uppercase; color: var(--ink); opacity: 0; }
+.ov-sub b { color: var(--gold); }
+.ov-promo { color: var(--neon); display: block; }
+.overlay.is-on .ov-stamp { animation: stamp 2.8s cubic-bezier(.1, .9, .2, 1) .15s forwards; }
+.overlay.is-on .ov-kicker { animation: rise .45s .5s var(--glide) forwards; }
+.overlay.is-on .ov-sub { animation: rise .45s .7s var(--glide) forwards; }
+@keyframes stamp { 0% { opacity: 0; transform: scale(2.8) rotate(-16deg); } 12% { opacity: 1; transform: scale(.93) rotate(-5deg); } 18% { transform: scale(1.05) rotate(-6deg); } 26%, 100% { opacity: 1; transform: scale(1) rotate(-5deg); } }
+@keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+/* ── toast ── */
+.toast { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 18px); transform: translateX(-50%); z-index: 80; display: flex; align-items: center; gap: 4px; max-width: calc(100% - 32px); width: max-content; padding: 7px 7px 7px 16px; border: 1px solid var(--line-2); background: rgba(13, 10, 20, .97); color: var(--ink); font-size: 15.5px; box-shadow: 0 16px 40px -16px rgba(0, 0, 0, .9); }
+.toast.in { animation: toastin .22s var(--glide); }
+@keyframes toastin { from { transform: translate(-50%, 12px); opacity: 0; } }
+.toast span { padding-right: 6px; }
+.toast .t-rep { color: var(--gold); font: 800 15px/1 var(--font-hud); letter-spacing: .06em; padding-right: 2px; }
+.toast button { border: 0; background: transparent; color: var(--neon); font: 800 14.5px/1 var(--font-hud); letter-spacing: .12em; text-transform: uppercase; cursor: pointer; min-height: 38px; padding: 0 10px; white-space: nowrap; }
+.toast button:hover { background: rgba(255, 61, 127, .12); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  .overlay.is-on .ov-stamp, .overlay.is-on .ov-kicker, .overlay.is-on .ov-sub { opacity: 1; animation: none !important; }
+  .overlay.is-on .ov-stamp { transform: rotate(-5deg); }
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path fill="currentColor" stroke="none" d="M12 2.8l2 6.2 6.2 2-6.2 2L12 19.2l-2-6.2-6.2-2 6.2-2z"/></symbol>
+    <symbol id="i-in" viewBox="0 0 24 24"><path d="M14 4h4.5A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5H14"/><path d="M3.5 12H14"/><path d="M10 8l4 4-4 4"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.3a4.3 4.3 0 0 1 7.5 2.5C19.5 15.4 12 20 12 20z"/></symbol>
+    <symbol id="i-bubble" viewBox="0 0 24 24"><path d="M5 5h14a1.5 1.5 0 0 1 1.5 1.5v8.5a1.5 1.5 0 0 1-1.5 1.5h-9l-4.5 3.5v-3.5H5A1.5 1.5 0 0 1 3.5 15V6.5A1.5 1.5 0 0 1 5 5z"/></symbol>
+    <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0"/><path d="M12 17.5V21"/></symbol>
+    <symbol id="i-game" viewBox="0 0 24 24"><path d="M7 8h10a4 4 0 0 1 4 4v1.5a3 3 0 0 1-5.4 1.8L14.5 14h-5l-1.1 1.3A3 3 0 0 1 3 13.5V12a4 4 0 0 1 4-4z"/><path d="M7.5 10.2v3.4M5.8 11.9h3.4"/><path d="M15.5 11h.01M17.3 12.8h.01" stroke-width="2.4"/></symbol>
+    <symbol id="i-phone" viewBox="0 0 24 24"><path d="M6.5 3.5h3l1.5 4.5-2 1.3a10.5 10.5 0 0 0 5.7 5.7l1.3-2 4.5 1.5v3a2 2 0 0 1-2 2A15.5 15.5 0 0 1 4.5 5.5a2 2 0 0 1 2-2z"/></symbol>
+    <symbol id="i-cup" viewBox="0 0 24 24"><path d="M4 9.5h12V14a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z"/><path d="M16 11h1.6a2.4 2.4 0 0 1 0 4.8h-2"/><path d="M8 3.5c-.9 1 .9 2 0 3.2M12 3.5c-.9 1 .9 2 0 3.2"/></symbol>
+    <symbol id="i-house" viewBox="0 0 24 24"><path d="M3.5 11.5L12 4.5l8.5 7"/><path d="M6 10v10h12V10"/><path d="M10 20v-5.5h4V20"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M19.5 14.2A7.8 7.8 0 0 1 9.8 4.5a7.8 7.8 0 1 0 9.7 9.7z"/></symbol>
+    <symbol id="i-cake" viewBox="0 0 24 24"><path d="M4 20.5h16"/><path d="M5.5 20.5V13h13v7.5"/><path d="M5.5 16.3c1.6 1 2.9 1 4.4 0 1.5-1 2.8-1 4.2 0 1.5 1 2.9 1 4.4 0"/><path d="M12 13V9.8"/><path d="M12 4.5c1 1.2 1 2.4 0 3-1-.6-1-1.8 0-3z"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6A1.5 1.5 0 0 0 14 4.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4.5 7h15"/><path d="M9.5 7V4.5h5V7"/><path d="M6.5 7l1 12.5h9l1-12.5"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 4v11"/><path d="M7.5 10.5L12 15l4.5-4.5"/><path d="M5 19.5h14"/></symbol>
+    <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 15V4"/><path d="M7.5 8.5L12 4l4.5 4.5"/><path d="M5 19.5h14"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+    <symbol id="i-shuffle" viewBox="0 0 24 24"><path d="M4 7h3.5c4 0 5 10 9 10H20"/><path d="M4 17h3.5c1.4 0 2.4-1.2 3.3-2.7M13.2 9.7C14.1 8.2 15.1 7 16.5 7H20"/><path d="M17.5 4.5L20 7l-2.5 2.5M17.5 14.5L20 17l-2.5 2.5"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6.5h11M9 12h11M9 17.5h11"/><path d="M4.5 6.5h.01M4.5 12h.01M4.5 17.5h.01" stroke-width="2.6"/></symbol>
+    <symbol id="i-sound" viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6"/><path d="M18 6.5a7.5 7.5 0 0 1 0 11"/></symbol>
+    <symbol id="i-mute" viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></symbol>
+    <symbol id="i-board" viewBox="0 0 24 24"><rect x="5" y="4.5" width="14" height="16" rx="1.5"/><path d="M9 4.5V3h6v1.5"/><path d="M8.5 11l2 2 4-4"/><path d="M8.5 16.5h7"/></symbol>
+  </defs>
+</svg>
+
+<header class="hud">
+  <div class="hud-inner">
+    <div class="brand">
+      <svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="18" fill="#141022" stroke="#05040a" stroke-width="2.5"/><circle cx="20" cy="20" r="11.5" fill="none" stroke="#2ee6c8" stroke-width="1.3" stroke-dasharray="2.5 2.5"/><circle cx="20" cy="20" r="6" fill="none" stroke="#ffd166" stroke-width="1.3" stroke-dasharray="2 2"/><path d="M20 15.5l3.2 8-3.2-1.8-3.2 1.8z" fill="#fff" stroke="#05040a" stroke-width="1"/><circle cx="29.5" cy="12.5" r="3.4" fill="#ff3d7f" stroke="#05040a" stroke-width="1.4"/><circle cx="10" cy="26" r="2.8" fill="#2ee6c8" stroke="#05040a" stroke-width="1.3"/><circle cx="27" cy="29" r="2.3" fill="#ffd166" stroke="#05040a" stroke-width="1.2"/></svg>
+      <span class="wordmark">Homies</span>
+      <span class="tagline">Out of sight, still on the radar</span>
+    </div>
+    <button class="rep-pill" data-act="rep-jump" aria-label="Your respect and rank">
+      <span class="rank-badge" id="rank-num">1</span>
+      <span class="rp-text"><span class="rp-rank" id="hud-rank">Lone Wolf</span><span class="rp-rep"><b id="hud-rep">0</b> respect</span></span>
+    </button>
+    <div class="hud-actions">
+      <button class="hud-btn" id="snd-btn" data-act="sound" aria-pressed="true" title="Sound"><svg class="ico"><use href="#i-sound"/></svg><span class="sr">Sound</span></button>
+      <button class="safe-btn" id="safe-btn" data-act="safehouse" aria-pressed="false" title="Safehouse mode, for hard days"><svg class="ico"><use href="#i-house"/></svg><span>Safehouse</span></button>
+    </div>
+  </div>
+</header>
+
+<main class="city" id="city">
+  <section class="card mission" id="mission" aria-labelledby="mission-h">
+    <header class="card-head">
+      <span class="call-ico"><svg class="ico"><use href="#i-phone"/></svg></span>
+      <div><p class="eyebrow" id="mission-date">Contact mission</p><h2 class="card-title" id="mission-h">Today's homie</h2></div>
+    </header>
+    <div class="fuel-row"><span class="eyebrow" id="fuel-l">Fuel today</span><div class="fuel" id="fuel" role="radiogroup" aria-labelledby="fuel-l"></div></div>
+    <div class="mission-body" id="mission-body"></div>
+  </section>
+
+  <section class="card radar-card" id="radar-card" aria-labelledby="radar-h">
+    <header class="card-head radar-head">
+      <div><p class="eyebrow">Your city</p><h2 class="card-title" id="radar-h">Radar</h2></div>
+      <p class="radar-hint">Closer to you = more in touch</p>
+    </header>
+    <div class="radar-stage">
+      <div class="radar-wrap" id="radar-wrap">
+        <canvas id="radar" role="img" aria-label="Radar of your homies"></canvas>
+        <div class="radar-empty" id="radar-empty" hidden></div>
+      </div>
+      <div class="hud-bars" aria-hidden="true">
+        <div class="hbar rep"><div class="hbar-track"><div class="hbar-fill" id="bar-rep"></div></div><div class="hbar-l"><span>Rep</span><span id="bar-rep-l"></span></div></div>
+        <div class="hbar fuel"><div class="hbar-track"><div class="hbar-fill" id="bar-fuel"></div></div><div class="hbar-l"><span>Fuel</span><span id="bar-fuel-l"></span></div></div>
+      </div>
+    </div>
+    <div class="legend" id="legend" aria-label="Filter your homies by zone"></div>
+  </section>
+
+  <section class="phone-col" aria-labelledby="phone-h">
+    <div class="phone">
+      <div class="phone-status" aria-hidden="true"><span id="clock"></span><span class="notch"></span><span class="sig"><span><i style="height:4px"></i><i style="height:7px"></i><i style="height:10px"></i></span>LTE</span></div>
+      <div class="phone-screen">
+        <header class="app-head"><h2 id="phone-h">Contacts<span class="count" id="people-count"></span></h2></header>
+        <div class="app-body">
+          <form class="add" id="add-form" autocomplete="off">
+            <label class="sr" for="add-name">Name</label>
+            <input class="field" id="add-name" maxlength="60" placeholder="Who's on your mind?">
+            <button class="btn primary" type="submit"><svg class="ico"><use href="#i-plus"/></svg> Add</button>
+            <label class="sr" for="add-how">How you know them</label>
+            <input class="field how" id="add-how" maxlength="80" placeholder="How you know them (optional)">
+          </form>
+          <div><button class="btn ghost small" type="button" data-act="dump-toggle" aria-expanded="false" aria-controls="dump"><svg class="ico"><use href="#i-list"/></svg> Add a bunch at once</button></div>
+          <form class="dump" id="dump" hidden>
+            <label for="dump-text" class="eyebrow">One name per line, or commas</label>
+            <textarea class="field" id="dump-text" rows="4" placeholder="Sam&#10;Auntie Rose&#10;that guy from Friday game nights"></textarea>
+            <div class="row"><button class="btn primary small" type="submit">Add everyone</button><span class="fine">Names already here are skipped.</span></div>
+          </form>
+          <div class="banner" id="example-banner" hidden>
+            <p>These are example homies so you can see how it all works. They don't count toward your respect.</p>
+            <button class="btn small" data-act="clear-examples">Clear example homies</button>
+          </div>
+          <div class="toolbar">
+            <div class="search">
+              <svg class="ico"><use href="#i-search"/></svg>
+              <label class="sr" for="search">Search your homies</label>
+              <input class="field" id="search" type="search" placeholder="Search names, intel">
+            </div>
+            <label class="sr" for="sort">Sort</label>
+            <select class="field" id="sort">
+              <option value="wave">Wave first</option>
+              <option value="orbit">Closest first</option>
+              <option value="az">A to Z</option>
+              <option value="new">Newest</option>
+            </select>
+          </div>
+          <div class="chips" id="crew-chips"></div>
+          <p class="filter-note" id="filter-note" hidden></p>
+          <div id="people-list"></div>
+          <details class="resting" id="resting" hidden>
+            <summary><svg class="ico"><use href="#i-moon"/></svg> Laying low <span id="resting-n"></span></summary>
+            <p class="fine">Off the radar for now. Not suggested. Nothing is deleted.</p>
+            <div class="list" id="resting-list"></div>
+          </details>
+          <p class="keys">Keys: <kbd>N</kbd> add · <kbd>/</kbd> search · <kbd>Esc</kbd> close</p>
+        </div>
+        <footer class="app-foot">
+          <p class="status" id="status"><span class="dot"></span><span id="status-text">Saved on this device</span></p>
+          <div class="row">
+            <button class="btn ghost small" data-act="backup"><svg class="ico"><use href="#i-down"/></svg> Back up</button>
+            <button class="btn ghost small" data-act="import"><svg class="ico"><use href="#i-up"/></svg> Restore</button>
+            <input type="file" id="import-file" accept=".json,application/json" hidden>
+          </div>
+        </footer>
+      </div>
+    </div>
+  </section>
+
+  <section class="card rep-card" id="rep" aria-labelledby="rep-h">
+    <header class="card-head"><div><p class="eyebrow">Your standing</p><h2 class="card-title" id="rep-h">Respect</h2></div></header>
+    <div id="rep-body" style="display:grid;gap:12px"></div>
+  </section>
+</main>
+
+<section class="safehouse" id="safehouse" hidden aria-labelledby="safe-h">
+  <div class="card">
+    <p class="eyebrow">Safehouse mode</p>
+    <h2 id="safe-h" tabindex="-1">Lay low.</h2>
+    <h3>Nothing here is urgent.</h3>
+    <p class="muted">You don't have to reach out to anyone today. If you'd like some company, these are the homies you marked as safehouse people.</p>
+    <div id="safe-list"></div>
+    <div style="display:grid;gap:8px">
+      <p class="eyebrow">A message that asks for nothing</p>
+      <p class="quote" id="safe-quote">Rough day over here. No need to reply, I just wanted to say hi to someone I like.</p>
+      <div class="row"><button class="btn small" data-act="copy" data-text="Rough day over here. No need to reply, I just wanted to say hi to someone I like."><svg class="ico"><use href="#i-copy"/></svg> Copy it</button></div>
+    </div>
+    <p class="fine">If it's more than a hard day, you can talk to someone right now. In Australia, call Lifeline on 13 11 14. In the US or Canada, call or text 988. In the UK or Ireland, call Samaritans on 116 123.</p>
+    <div><button class="btn palm" data-act="safehouse">Leave the safehouse</button></div>
+  </div>
+</section>
+
+<div class="scrim" id="scrim" data-act="close" hidden></div>
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="d-name" hidden></aside>
+<div class="overlay" id="overlay" data-act="overlay-close" hidden aria-hidden="true">
+  <div class="ov-flash"></div>
+  <div class="ov-inner">
+    <div class="ov-kicker" id="ov-kicker">Mission passed</div>
+    <div class="ov-stamp-wrap"><span class="ov-stamp" id="ov-stamp">Respect+</span></div>
+    <div class="ov-sub" id="ov-sub"></div>
+  </div>
+</div>
+<div class="tip" id="radar-tip" hidden></div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<div class="sr" id="announcer" aria-live="polite"></div>
+<datalist id="crew-list"></datalist>
+
+<script>
+(() => {
+'use strict';
+
+/* ---------- basics ---------- */
+const DAY = 864e5;
+const TAU = Math.PI * 2;
+const LS_KEY = 'homies.v1';           // your homies; the "homies." prefix keeps clear of Mission Possible's keys on the same site
+const PREF_KEY = 'homies.prefs.v1';   // this device only
+const EMBED = new URLSearchParams(location.search).has('embed');
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const uid = p => p + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const pad = n => String(n).padStart(2, '0');
+const dayKey = (t = Date.now()) => { const d = new Date(t); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+const startOfDay = t => { const d = new Date(t); d.setHours(0, 0, 0, 0); return d.getTime(); };
+const daysBetween = (a, b) => Math.round((startOfDay(b) - startOfDay(a)) / DAY);
+const ico = id => `<svg class="ico" aria-hidden="true"><use href="#${id}"/></svg>`;
+const pickOne = arr => arr[Math.floor(Math.random() * arr.length)];
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+function hashStr(s){ let h = 2166136261; for (let i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+function debounce(fn, ms){ let t = 0; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+if (EMBED) document.body.classList.add('embed');
+
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+// The kind keys match Friend Orbit, so its backups restore here as they are.
+// size: how big the moment is (0 a thought … 4 linking up in person). It sets the
+// blip's ping on the radar and the sound. rep: respect it earns.
+const KINDS = {
+  thought: {label:'Thought of them', past:'Thought of them',       icon:'i-spark',  cost:0, contact:false, size:0, rep:5,  color:'#e9e2ff'},
+  they:    {label:'They hit me up',  past:'They hit you up',       icon:'i-in',     cost:0, contact:true,  size:2, rep:15, color:'#7cf29a'},
+  react:   {label:'Sent a meme',     past:'Sent a meme or a heart',icon:'i-heart',  cost:1, contact:true,  size:1, rep:10, color:'#ff3d7f'},
+  text:    {label:'Texted',          past:'Texted',                icon:'i-bubble', cost:2, contact:true,  size:2, rep:20, color:'#4b9bff'},
+  voice:   {label:'Voice memo',      past:'Sent a voice memo',     icon:'i-mic',    cost:2, contact:true,  size:2, rep:20, color:'#2ee6c8'},
+  game:    {label:'Gamed together',  past:'Gamed together',        icon:'i-game',   cost:3, contact:true,  size:3, rep:35, color:'#ff9b3d'},
+  call:    {label:'Called',          past:'Called',                icon:'i-phone',  cost:3, contact:true,  size:3, rep:35, color:'#9a6bff'},
+  hang:    {label:'Linked up IRL',   past:'Linked up in person',   icon:'i-cup',    cost:4, contact:true,  size:4, rep:50, color:'#ffd166'},
+};
+const KIND_ORDER = ['thought','react','text','voice','game','call','hang','they'];
+const KIND_CHANNEL = {react:['memes','social'], text:['text'], voice:['voice'], game:['games'], call:['calls','video'], hang:['irl']};
+const STAMPS = {game:['GG, homie','Respect+'], call:['On the line','Respect+'], hang:['Linked up','Homie!']};
+const RHYTHMS = {
+  weekly:   {days:7,   label:'Every week'},
+  fortnight:{days:14,  label:'Every couple of weeks'},
+  monthly:  {days:30,  label:'Every month or so'},
+  seasonal: {days:90,  label:'Every few months'},
+  whenever: {days:180, label:'Whenever'},
+};
+const CHANNELS = {text:'Texts', voice:'Voice memos', memes:'Memes', calls:'Calls', video:'Video chat', games:'Games', irl:'In person', letters:'Cards and letters', social:'Socials'};
+const FUEL = [
+  {v:1, label:'Fumes',     hint:'Just thinking of them counts today.'},
+  {v:2, label:'Low',       hint:'Something tiny, like a meme or a heart.'},
+  {v:3, label:'Cruising',  hint:'Maybe a text or a voice memo.'},
+  {v:4, label:'Full tank', hint:'Anything goes, if you feel like it.'},
+];
+const ZONES = [
+  {key:'close', label:'Crew',        blurb:'Tight lately',        max:0.5,      color:'#ffd166'},
+  {key:'orbit', label:'The Block',   blurb:'All good',            max:1,        color:'#2ee6c8'},
+  {key:'drift', label:'Across Town', blurb:'Could use a wave',    max:2,        color:'#4b9bff'},
+  {key:'far',   label:'Off the Map', blurb:'Still on your radar', max:Infinity, color:'#9a6bff'},
+];
+const RANKS = [
+  {min:0,    name:'Lone Wolf'},
+  {min:50,   name:'Familiar Face'},
+  {min:150,  name:'Homie'},
+  {min:350,  name:'Day One'},
+  {min:700,  name:'Ride or Die'},
+  {min:1200, name:'Crew Boss'},
+  {min:2000, name:'Block Legend'},
+  {min:3500, name:'Godfather of the Group Chat'},
+];
+const HUES = [198, 318, 150, 12, 252, 172, 28, 282, 222, 346];
+const HUE_NAMES = {12:'coral', 28:'tangerine', 150:'green', 172:'teal', 198:'sky', 222:'blue', 252:'indigo', 282:'violet', 318:'orchid', 346:'rose'};
+const APPROX = {week:4, month:24, months:100, ages:400};
+const THOUGHT_LINES = ['{n} is still on your radar.', 'Thinking of your people counts.', 'Shout-out to {n}. Noted.'];
+const CONTACT_LINES = ['{n} just got a little closer.', 'That counts. It really does.', 'Small move, real connection.', 'Smooth. {n} is back on the block.', 'You looked out for {n}. Respect.'];
+const SAFE_MSG = "Rough day over here. No need to reply, I just wanted to say hi to someone I like.";
+
+/* ---------- prefs (this device only) ---------- */
+const prefs = (() => { try { return JSON.parse(localStorage.getItem(PREF_KEY) || '{}') || {}; } catch (e) { return {}; } })();
+function savePrefs(){ try { localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); } catch (e) {} }
+if (typeof prefs.sound !== 'boolean') prefs.sound = true;
+
+/* ---------- state ---------- */
+const state = {
+  friends: new Map(),
+  bonus: 0, // respect kept from homies you deleted, so it never goes down
+  search: '', crew: 'all', zone: null, sort: prefs.sort || 'wave',
+  expanded: new Set(),
+  openId: null, noteFor: null, showAllLog: false, confirmDelete: false,
+  energy: (prefs.energy && prefs.energy.date === dayKey()) ? prefs.energy.v : null,
+  safehouse: !!prefs.safehouse,
+};
+
+/* ---------- homie model ---------- */
+function first(f){ return f.name.trim().split(/\s+/)[0]; }
+function initials(f){
+  const p = f.name.trim().split(/\s+/);
+  const a = Array.from(p[0] || '')[0] || '';
+  const b = p.length > 1 ? (Array.from(p[p.length - 1])[0] || '') : '';
+  return (a + b).toUpperCase() || '?';
+}
+function normFriend(raw){
+  if (!raw || typeof raw !== 'object') return null;
+  const str = (v, n) => String(v ?? '').trim().slice(0, n);
+  const num = v => (typeof v === 'number' && isFinite(v)) ? v : null;
+  const name = str(raw.name, 60);
+  if (!name) return null;
+  const okId = v => typeof v === 'string' && /^[A-Za-z0-9_\-.~:@+]{1,80}$/.test(v);
+  const id = okId(raw.id) ? raw.id : uid('f');
+  const items = (v, n) => Array.isArray(v) ? v.filter(x => x && typeof x.text === 'string' && x.text.trim()).slice(0, n)
+    .map(x => ({id: typeof x.id === 'string' ? x.id.slice(0, 40) : uid('n'), text: str(x.text, 160)})) : [];
+  const log = Array.isArray(raw.log) ? raw.log.filter(l => l && KINDS[l.kind] && num(l.at) !== null).slice(0, 200)
+    .map(l => ({id: typeof l.id === 'string' ? l.id.slice(0, 40) : uid('l'), kind: l.kind, at: l.at, note: str(l.note, 280)})) : [];
+  log.sort((a, b) => b.at - a.at);
+  const bd = raw.birthday && num(raw.birthday.m) !== null && num(raw.birthday.d) !== null
+    ? {m: clamp(Math.round(raw.birthday.m), 1, 12), d: clamp(Math.round(raw.birthday.d), 1, 31)} : null;
+  const hue = num(raw.hue);
+  return {
+    id, name,
+    pronouns: str(raw.pronouns, 30), how: str(raw.how, 80), circle: str(raw.circle, 30).toLowerCase(),
+    hue: hue !== null ? ((Math.round(hue) % 360) + 360) % 360 : HUES[hashStr(id) % HUES.length],
+    glyph: Array.from(str(raw.glyph, 8)).slice(0, 2).join(''),
+    rhythm: RHYTHMS[raw.rhythm] ? raw.rhythm : 'monthly',
+    channels: Array.isArray(raw.channels) ? [...new Set(raw.channels.filter(c => CHANNELS[c]))] : [],
+    memories: items(raw.memories, 40), topics: items(raw.topics, 40), log,
+    approxLast: num(raw.approxLast),
+    birthday: bd,
+    safe: !!raw.safe, resting: !!raw.resting, restNote: str(raw.restNote, 120),
+    example: !!raw.example,
+    createdAt: num(raw.createdAt) ?? Date.now(), updatedAt: num(raw.updatedAt) ?? Date.now(),
+  };
+}
+function lastContactLog(f){ return f.log.find(l => KINDS[l.kind].contact) || null; }
+function lastContact(f){
+  const l = lastContactLog(f);
+  let t = l ? l.at : null;
+  if (f.approxLast !== null && (t === null || f.approxLast > t)) t = f.approxLast;
+  return t;
+}
+function lastThought(f){ const l = f.log.find(x => x.kind === 'thought'); return l ? l.at : null; }
+function rhythmDays(f){ return (RHYTHMS[f.rhythm] || RHYTHMS.monthly).days; }
+/* 0 = just talked. 1 = one full check-in rhythm has passed. Thinking of someone keeps them on the block. */
+function drift(f){
+  const now = Date.now(), R = rhythmDays(f);
+  const lc = lastContact(f), lt = lastThought(f);
+  let d = lc === null ? 1.5 : (now - lc) / DAY / R;
+  if (lt !== null) d = Math.min(d, 0.5 + (now - lt) / DAY / R);
+  return Math.max(0, d);
+}
+const zoneOf = d => ZONES.find(z => d < z.max);
+// drift → distance from you on the radar (0..1 of the radius)
+const rf = d => 0.17 + 0.77 * (1 - Math.exp(-0.75 * d));
+function ago(t){
+  const days = daysBetween(t, Date.now());
+  if (days <= 0) return 'today';
+  if (days === 1) return 'yesterday';
+  if (days < 7) return `${days} days ago`;
+  if (days < 11) return 'about a week ago';
+  if (days < 26) return `${Math.round(days / 7)} weeks ago`;
+  if (days < 45) return 'about a month ago';
+  if (days < 320) return `${Math.max(2, Math.round(days / 30.4))} months ago`;
+  if (days < 548) return 'about a year ago';
+  return 'over a year ago';
+}
+function nextBirthday(f){
+  if (!f.birthday) return null;
+  const now = new Date(), y = now.getFullYear();
+  let d = new Date(y, f.birthday.m - 1, f.birthday.d);
+  if (startOfDay(d.getTime()) < startOfDay(now.getTime())) d = new Date(y + 1, f.birthday.m - 1, f.birthday.d);
+  return {date: d, days: daysBetween(now.getTime(), d.getTime())};
+}
+function likesKind(f, k){ return (KIND_CHANNEL[k] || []).some(c => f.channels.includes(c)); }
+const allFriends = () => [...state.friends.values()];
+const activeFriends = () => allFriends().filter(f => !f.resting);
+const loggedToday = f => f.log.some(l => l.at >= startOfDay(Date.now()));
+const repOf = f => f.example ? 0 : f.log.reduce((s, l) => s + KINDS[l.kind].rep, 0);
+const respect = () => state.bonus + allFriends().reduce((s, f) => s + repOf(f), 0);
+function rankIndex(rep){ let i = 0; RANKS.forEach((r, k) => { if (rep >= r.min) i = k; }); return i; }
+
+/* ---------- storage: this browser ---------- */
+const Store = {
+  ok: true,
+  load(){
+    try {
+      const raw = localStorage.getItem(LS_KEY);
+      if (!raw) return false;
+      const p = JSON.parse(raw);
+      state.friends.clear();
+      (p.friends || []).forEach(r => { const f = normFriend(r); if (f) state.friends.set(f.id, f); });
+      state.bonus = Number.isFinite(p.bonus) ? Math.max(0, p.bonus) : 0;
+      return true;
+    } catch (e) { return false; }
+  },
+  save: debounce(() => {
+    try { localStorage.setItem(LS_KEY, JSON.stringify({v: 1, bonus: state.bonus, friends: allFriends()})); Store.ok = true; }
+    catch (e) { Store.ok = false; }
+    renderStatus();
+  }, 200),
+};
+
+function commit(f, {drawer = true} = {}){
+  f.updatedAt = Date.now();
+  state.friends.set(f.id, f);
+  Store.save();
+  renderAll();
+  if (drawer && state.openId === f.id) renderDrawer();
+}
+function edit(id, fn, opts){ const f = state.friends.get(id); if (!f) return null; fn(f); commit(f, opts); return f; }
+
+/* ---------- Mission Possible bridge ----------
+   When Homies runs inside Mission Possible (as a tab, via ?embed=1) it tells the
+   board about each move, and if the board says hello with the "jobs" feature,
+   today's homie gets a "Put it on my board" button. See INTEGRATION.md. */
+const Bridge = {
+  host: null,
+  send(msg){
+    if (!EMBED || window.parent === window) return;
+    try { window.parent.postMessage(Object.assign({source: 'homies', v: 1}, msg), location.origin); } catch (e) {}
+  },
+  can(feature){ return !!(this.host && this.host.features.includes(feature)); },
+  init(){
+    if (!EMBED) return;
+    addEventListener('message', e => {
+      if (e.origin !== location.origin || e.source !== window.parent) return;
+      const d = e.data;
+      if (!d || d.source !== 'mission-possible') return;
+      if (d.type === 'hello'){
+        this.host = {features: Array.isArray(d.features) ? d.features.filter(x => typeof x === 'string') : []};
+        renderMission();
+      } else if (d.type === 'job-done' && typeof d.homieId === 'string' && state.friends.has(d.homieId)){
+        logKind(d.homieId, KINDS[d.kind] && d.kind !== 'thought' ? d.kind : 'text', {fromBoard: true});
+      }
+    });
+    this.send({type: 'ready'});
+  },
+};
+
+/* ---------- sound (synthesised in the browser, so there's nothing to license) ---------- */
+const Sound = (() => {
+  let ctx = null, out = null;
+  function ready(){
+    try {
+      if (!ctx){
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return false;
+        ctx = new AC();
+        const comp = ctx.createDynamicsCompressor();
+        out = ctx.createGain(); out.gain.value = 0.5;
+        out.connect(comp); comp.connect(ctx.destination);
+      }
+      if (ctx.state === 'suspended') ctx.resume();
+      return true;
+    } catch (e) { return false; }
+  }
+  function tone(freq, at, dur, o = {}){
+    const {type = 'square', vol = .1, attack = .006, glide = 0} = o;
+    const t0 = ctx.currentTime + at;
+    const osc = ctx.createOscillator(), g = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t0);
+    if (glide) osc.frequency.exponentialRampToValueAtTime(glide, t0 + dur);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(vol, t0 + attack);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.connect(g); g.connect(out);
+    osc.start(t0); osc.stop(t0 + dur + .05);
+  }
+  const SFX = {
+    tap(){ tone(1400, 0, .04, {type:'triangle', vol:.05}); },
+    add(){ tone(660, 0, .09, {vol:.07}); tone(990, .07, .14, {vol:.06}); },
+    thought(){ tone(1320, 0, .3, {type:'sine', vol:.09}); tone(1980, .06, .35, {type:'sine', vol:.04}); },
+    small(){ tone(784, 0, .1, {type:'triangle', vol:.12}); tone(1175, .08, .18, {type:'triangle', vol:.1}); },
+    move(){ [523, 659, 784].forEach((f, i) => tone(f, i * .07, .16, {type:'triangle', vol:.12})); tone(1046, .21, .3, {type:'triangle', vol:.1}); },
+    big(){
+      [[392, 0], [523, .12], [659, .24], [784, .36]].forEach(([f, t]) => tone(f, t, .2, {vol:.07}));
+      [523, 659, 784, 1046].forEach(f => tone(f, .5, .9, {vol:.05}));
+      tone(1568, .5, .7, {type:'sine', vol:.05});
+    },
+    promo(){ [659, 784, 988, 1318].forEach((f, i) => tone(f, i * .09, .25, {vol:.06})); tone(1318, .4, .8, {type:'sine', vol:.06}); },
+    ring(){ for (let i = 0; i < 6; i++) tone(i % 2 ? 1100 : 880, i * .06, .055, {type:'sine', vol:.07}); },
+    safe(){ tone(392, 0, .8, {type:'sine', vol:.08}); tone(587, .15, .9, {type:'sine', vol:.05}); },
+  };
+  return {
+    play(name){ if (!prefs.sound || !ready()) return; try { SFX[name](); } catch (e) {} },
+    toggle(){ prefs.sound = !prefs.sound; savePrefs(); renderSoundBtn(); if (prefs.sound) this.play('tap'); },
+  };
+})();
+function renderSoundBtn(){
+  const b = $('#snd-btn');
+  b.setAttribute('aria-pressed', String(prefs.sound));
+  b.title = prefs.sound ? 'Sound on' : 'Sound off';
+  b.querySelector('use').setAttribute('href', prefs.sound ? '#i-sound' : '#i-mute');
+}
+
+/* ---------- radar ---------- */
+const Radar = (() => {
+  const wrap = $('#radar-wrap'), cv = $('#radar'), ctx = cv.getContext('2d'), tip = $('#radar-tip');
+  const blips = new Map();
+  let S = 0, dpr = 1, map = null, raf = 0, last = 0, lastDraw = 0, hover = null, pulse = null, dimZone = null, bursts = [], onScreen = true;
+  const fontHud = getComputedStyle(document.documentElement).getPropertyValue('--font-hud') || 'sans-serif';
+  const sweepOn = () => !reduceMotion.matches && !state.safehouse;
+  const rb = () => (S / 2 - 4) * 0.97;
+  const blipR = () => clamp(S / 38, 7, 12);
+  function rand(seed){ let s = seed >>> 0; return () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; }; }
+
+  // A little city under the radar: blocks, parks, main roads, a highway and the bay.
+  function buildMap(){
+    map = document.createElement('canvas');
+    map.width = map.height = Math.max(1, Math.round(S * dpr));
+    const g = map.getContext('2d');
+    g.scale(dpr, dpr);
+    const r = rand(7331), n = 14, step = S / n;
+    g.fillStyle = '#141022'; g.fillRect(0, 0, S, S);
+    g.fillStyle = '#18132a';
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) if (r() < .55) g.fillRect(i * step + 3, j * step + 3, step - 6, step - 6);
+    g.fillStyle = '#12291f';
+    for (let k = 0; k < 6; k++){
+      const x = Math.floor(r() * (n - 2) + 1) * step, y = Math.floor(r() * (n - 2) + 1) * step, w = step * (1 + Math.floor(r() * 2));
+      g.fillRect(x + 3, y + 3, w - 6, step - 6);
+    }
+    g.strokeStyle = '#251e38'; g.lineWidth = Math.max(1, S / 300);
+    for (let i = 1; i < n; i++){
+      g.beginPath(); g.moveTo(i * step, 0); g.lineTo(i * step, S); g.stroke();
+      g.beginPath(); g.moveTo(0, i * step); g.lineTo(S, i * step); g.stroke();
+    }
+    g.strokeStyle = '#3a2f55'; g.lineWidth = Math.max(2, S / 120);
+    for (const i of [3, 8, 11]){
+      g.beginPath(); g.moveTo(i * step, 0); g.lineTo(i * step, S); g.stroke();
+      g.beginPath(); g.moveTo(0, (i - 1) * step); g.lineTo(S, (i - 1) * step); g.stroke();
+    }
+    g.strokeStyle = '#5a3a6e'; g.lineWidth = Math.max(3, S / 70); g.lineCap = 'round';
+    g.beginPath(); g.moveTo(-10, S * .18); g.bezierCurveTo(S * .35, S * .22, S * .55, S * .45, S + 10, S * .86); g.stroke();
+    g.strokeStyle = 'rgba(255,61,127,.25)'; g.lineWidth = Math.max(1, S / 300); g.stroke();
+    g.fillStyle = '#0e2142';
+    g.beginPath(); g.moveTo(0, S * .64); g.bezierCurveTo(S * .14, S * .6, S * .3, S * .76, S * .27, S); g.lineTo(0, S); g.closePath(); g.fill();
+    g.beginPath(); g.moveTo(S * .74, 0); g.bezierCurveTo(S * .8, S * .1, S * .92, S * .2, S, S * .17); g.lineTo(S, 0); g.closePath(); g.fill();
+  }
+
+  function resize(){
+    const w = Math.round(wrap.clientWidth);
+    if (!w) return;
+    dpr = Math.min(2, window.devicePixelRatio || 1);
+    if (w === S && cv.width === Math.round(w * dpr)) return;
+    S = w;
+    cv.width = cv.height = Math.round(S * dpr);
+    buildMap();
+    sync();
+  }
+
+  function angDiff(a, b){ return ((a - b + Math.PI * 3) % TAU) - Math.PI; }
+
+  function sync(){
+    const list = activeFriends();
+    const ids = new Set(list.map(f => f.id));
+    for (const id of [...blips.keys()]) if (!ids.has(id)) blips.delete(id);
+    const items = list.map(f => {
+      let b = blips.get(f.id);
+      const d = drift(f), r = rf(d);
+      if (!b){ b = {id: f.id, a0: (hashStr(f.id) % 3600) / 3600 * TAU, cr: reduceMotion.matches ? r : 1.08}; b.ca = b.a0; blips.set(f.id, b); }
+      const nb = nextBirthday(f);
+      Object.assign(b, {r, a: b.a0, hue: f.hue, label: f.glyph || initials(f), name: f.name, safe: f.safe, zone: zoneOf(d).key, bday: !!(nb && nb.days <= 7), f});
+      return b;
+    });
+    // nudge overlapping blips apart around the circle, keeping their distance from you
+    const gap = S ? (2.5 * blipR()) / rb() : 0.08;
+    for (let it = 0; it < 40; it++){
+      let moved = false;
+      for (let i = 0; i < items.length; i++) for (let j = i + 1; j < items.length; j++){
+        const p = items[i], q = items[j];
+        const dist = Math.hypot(Math.cos(p.a) * p.r - Math.cos(q.a) * q.r, Math.sin(p.a) * p.r - Math.sin(q.a) * q.r);
+        if (dist < gap){
+          const push = (gap - dist) / Math.max(.15, (p.r + q.r) / 2) * .5 + .002;
+          const s = angDiff(p.a, q.a) >= 0 ? 1 : -1;
+          p.a += s * push; q.a -= s * push; moved = true;
+        }
+      }
+      if (!moved) break;
+    }
+    const counts = ZONES.map(z => items.filter(b => b.zone === z.key).length);
+    cv.setAttribute('aria-label', items.length
+      ? `Radar of your homies: ${ZONES.map((z, i) => `${counts[i]} ${z.label}`).join(', ')}.`
+      : 'Radar of your homies. Nobody on it yet.');
+    kick();
+  }
+
+  function draw(now){
+    if (!S || !map) return;
+    const c = S / 2, R = c - 4, Rb = rb(), br = blipR();
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, S, S);
+    ctx.save();
+    ctx.beginPath(); ctx.arc(c, c, R, 0, TAU); ctx.clip();
+    ctx.drawImage(map, 0, 0, S, S);
+
+    // zone rings and their names
+    ctx.setLineDash([4, 5]); ctx.lineWidth = 1.5;
+    ZONES.slice(0, 3).forEach(z => {
+      ctx.strokeStyle = z.color + '77';
+      ctx.beginPath(); ctx.arc(c, c, rf(z.max) * Rb, 0, TAU); ctx.stroke();
+    });
+    ctx.setLineDash([]);
+    ctx.font = `800 ${Math.round(clamp(S / 46, 9, 12.5))}px ${fontHud}`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ZONES.forEach((z, i) => {
+      const outer = i < 3 ? rf(z.max) : 1.0;
+      const y = c - outer * Rb + 5;
+      const text = z.label.toUpperCase().split('').join(String.fromCharCode(8202));
+      ctx.fillStyle = 'rgba(5,4,10,.8)'; ctx.fillText(text, c + 1, y + 1);
+      ctx.fillStyle = z.color; ctx.globalAlpha = dimZone && dimZone !== z.key ? .35 : .9;
+      ctx.fillText(text, c, y);
+      ctx.globalAlpha = 1;
+    });
+
+    // the sweep
+    if (sweepOn() && ctx.createConicGradient){
+      const a = ((now / 4200) % 1) * TAU - Math.PI / 2;
+      const grad = ctx.createConicGradient(a, c, c);
+      grad.addColorStop(0, 'rgba(46,230,200,0)');
+      grad.addColorStop(.86, 'rgba(46,230,200,0)');
+      grad.addColorStop(1, 'rgba(46,230,200,.2)');
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, S, S);
+      ctx.strokeStyle = 'rgba(46,230,200,.45)'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(c, c); ctx.lineTo(c + Math.cos(a) * R, c + Math.sin(a) * R); ctx.stroke();
+    }
+
+    const vg = ctx.createRadialGradient(c, c, R * .55, c, c, R);
+    vg.addColorStop(0, 'rgba(5,4,10,0)'); vg.addColorStop(1, 'rgba(5,4,10,.55)');
+    ctx.fillStyle = vg; ctx.fillRect(0, 0, S, S);
+
+    // blips, the far ones first so close ones sit on top
+    const list = [...blips.values()].sort((a, b) => b.cr - a.cr);
+    for (const b of list){
+      b.x = c + Math.cos(b.ca) * b.cr * Rb;
+      b.y = c + Math.sin(b.ca) * b.cr * Rb;
+    }
+    for (const b of list) drawBlip(b, br, now);
+
+    for (const x of bursts){
+      const b = blips.get(x.id); if (!b) continue;
+      const t = (now - x.t0) / 900;
+      ctx.strokeStyle = x.color; ctx.lineWidth = 2.5; ctx.globalAlpha = Math.max(0, 1 - t);
+      ctx.beginPath(); ctx.arc(b.x, b.y, br + 2 + t * (12 + x.size * 9), 0, TAU); ctx.stroke();
+      if (x.size >= 3){ ctx.beginPath(); ctx.arc(b.x, b.y, br + 2 + t * (6 + x.size * 4), 0, TAU); ctx.stroke(); }
+      ctx.globalAlpha = 1;
+    }
+
+    // today's homie gets a name tag
+    const pb = pulse && blips.get(pulse);
+    if (pb) nameTag(pb, br, 'TODAY · ' + first(pb.f).toUpperCase());
+
+    // you, in the middle
+    const s = clamp(S / 46, 6, 10);
+    ctx.save(); ctx.translate(c, c);
+    ctx.fillStyle = '#fff'; ctx.strokeStyle = '#05040a'; ctx.lineWidth = 2; ctx.lineJoin = 'round';
+    ctx.beginPath(); ctx.moveTo(0, -s * 1.25); ctx.lineTo(s * .9, s); ctx.lineTo(0, s * .45); ctx.lineTo(-s * .9, s); ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    ctx.restore();
+    ctx.restore();
+
+    // the rim
+    ctx.lineWidth = 6; ctx.strokeStyle = '#05040a';
+    ctx.beginPath(); ctx.arc(c, c, R, 0, TAU); ctx.stroke();
+    ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(236,222,255,.22)';
+    ctx.beginPath(); ctx.arc(c, c, R - 3.5, 0, TAU); ctx.stroke();
+    const nr = clamp(S / 40, 7, 10);
+    ctx.fillStyle = '#05040a'; ctx.beginPath(); ctx.arc(c, 4 + nr * .4, nr, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#f7f2ff'; ctx.font = `800 ${Math.round(nr * 1.2)}px ${fontHud}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('N', c, 4 + nr * .4 + .5);
+  }
+
+  function drawBlip(b, br, now){
+    const {x, y} = b;
+    const faded = dimZone && b.zone !== dimZone;
+    const base = faded ? .22 : 1;
+    ctx.globalAlpha = base;
+    if (b.id === pulse){
+      ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 2;
+      if (!reduceMotion.matches){
+        const t = (now / 1400) % 1;
+        ctx.globalAlpha = base * (1 - t);
+        ctx.beginPath(); ctx.arc(x, y, br + 4 + t * 12, 0, TAU); ctx.stroke();
+        ctx.globalAlpha = base;
+      }
+      ctx.beginPath(); ctx.arc(x, y, br + 4, 0, TAU); ctx.stroke();
+    } else if (b.safe){
+      ctx.strokeStyle = '#2ee6c8'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(x, y, br + 3, 0, TAU); ctx.stroke();
+    }
+    if (b.id === hover){ ctx.strokeStyle = '#f7f2ff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, br + 6.5, 0, TAU); ctx.stroke(); }
+    ctx.fillStyle = 'rgba(5,4,10,.65)';
+    ctx.beginPath(); ctx.arc(x + 1.5, y + 2, br, 0, TAU); ctx.fill();
+    ctx.fillStyle = `hsl(${b.hue} 70% 42%)`;
+    ctx.beginPath(); ctx.arc(x, y, br, 0, TAU); ctx.fill();
+    ctx.save(); ctx.beginPath(); ctx.arc(x, y, br, 0, TAU); ctx.clip();
+    ctx.fillStyle = `hsl(${b.hue} 82% 62%)`;
+    ctx.beginPath(); ctx.arc(x - br * .2, y - br * .2, br * .92, 0, TAU); ctx.fill();
+    ctx.restore();
+    ctx.lineWidth = 2; ctx.strokeStyle = '#05040a';
+    ctx.beginPath(); ctx.arc(x, y, br, 0, TAU); ctx.stroke();
+    if (br >= 8){
+      ctx.fillStyle = '#07040c';
+      ctx.font = `800 ${Math.round(br * (Array.from(b.label).length > 1 ? .95 : 1.15))}px ${fontHud}`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(b.label, x - .5, y + 1);
+    }
+    if (b.bday){
+      ctx.fillStyle = '#ffd166'; ctx.strokeStyle = '#05040a'; ctx.lineWidth = 1.5;
+      const bx = x + br * .8, by = y - br * .8, q = br * .42;
+      ctx.beginPath(); ctx.moveTo(bx, by - q); ctx.lineTo(bx + q, by); ctx.lineTo(bx, by + q); ctx.lineTo(bx - q, by); ctx.closePath(); ctx.fill(); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function nameTag(b, br, text){
+    ctx.font = `800 ${Math.round(clamp(S / 40, 10, 13))}px ${fontHud}`;
+    const w = ctx.measureText(text).width + 12, h = clamp(S / 26, 16, 20);
+    let tx = clamp(b.x - w / 2, 8, S - w - 8), ty = b.y - br - 10 - h;
+    if (ty < 8) ty = b.y + br + 10;
+    ctx.fillStyle = 'rgba(5,4,10,.92)'; ctx.fillRect(tx, ty, w, h);
+    ctx.fillStyle = '#ffd166'; ctx.fillRect(tx, ty + h - 2, w, 2);
+    ctx.fillStyle = '#ffd166'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText(text, tx + 6, ty + h / 2);
+  }
+
+  function frame(now){
+    raf = 0;
+    const dt = Math.min(.1, (now - last) / 1000); last = now;
+    let moving = false;
+    for (const b of blips.values()){
+      const dr = b.r - b.cr, da = angDiff(b.a, b.ca);
+      if (Math.abs(dr) > .0008 || Math.abs(da) > .0008){
+        moving = true;
+        const k = reduceMotion.matches ? 1 : Math.min(1, dt * 3.2);
+        b.cr += dr * k; b.ca += da * k;
+      } else { b.cr = b.r; b.ca = b.a; }
+    }
+    bursts = bursts.filter(x => now - x.t0 < 900);
+    const busy = moving || bursts.length;
+    // the sweep alone only needs ~30 frames a second
+    if (busy || now - lastDraw > 32){ draw(now); lastDraw = now; }
+    if (!document.hidden && onScreen && (busy || sweepOn() || (pulse && !reduceMotion.matches))) raf = requestAnimationFrame(frame);
+  }
+  function kick(){ if (!raf){ last = performance.now(); raf = requestAnimationFrame(frame); } }
+
+  function hit(px, py){
+    const br = blipR() + 6;
+    let best = null, bd = Infinity;
+    for (const b of blips.values()){
+      if (b.x == null) continue;
+      const d = Math.hypot(b.x - px, b.y - py);
+      if (d < br && d < bd){ best = b; bd = d; }
+    }
+    return best;
+  }
+  const pos = e => { const r = cv.getBoundingClientRect(); return {x: (e.clientX - r.left) * S / r.width, y: (e.clientY - r.top) * S / r.height}; };
+  function setHover(b, e){
+    const id = b ? b.id : null;
+    cv.style.cursor = b ? 'pointer' : 'default';
+    if (!b){ tip.hidden = true; if (hover){ hover = null; kick(); } return; }
+    const f = b.f, z = zoneOf(drift(f)), lc = lastContact(f);
+    tip.innerHTML = `<b>${esc(f.name)}</b><span>${z.label} · ${lc !== null ? `in touch ${ago(lc)}` : 'no moves yet'}</span>`;
+    tip.hidden = false;
+    const tw = tip.offsetWidth, th = tip.offsetHeight;
+    tip.style.transform = `translate(${clamp(e.clientX + 14, 8, innerWidth - tw - 8)}px, ${clamp(e.clientY - th - 12, 8, innerHeight - th - 8)}px)`;
+    if (hover !== id){ hover = id; kick(); }
+  }
+  cv.addEventListener('pointermove', e => { if (e.pointerType !== 'mouse') return; const p = pos(e); setHover(hit(p.x, p.y), e); });
+  cv.addEventListener('pointerleave', () => setHover(null));
+  cv.addEventListener('click', e => {
+    const p = pos(e), b = hit(p.x, p.y);
+    if (b){ setHover(null); Sound.play('tap'); openDrawer(b.id); }
+  });
+
+  new ResizeObserver(() => resize()).observe(wrap);
+  new IntersectionObserver(es => { onScreen = es[0].isIntersecting; if (onScreen) kick(); }).observe(cv);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) kick(); });
+  reduceMotion.addEventListener('change', kick);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => kick());
+
+  return {
+    sync,
+    burst(id, size, color){ bursts.push({id, size, color, t0: performance.now()}); kick(); },
+    setPulse(id){ if (pulse !== id){ pulse = id; kick(); } },
+    setZone(z){ dimZone = z; kick(); },
+    kick,
+  };
+})();
+
+/* ---------- render ---------- */
+function renderAll(){
+  renderHUD();
+  renderMission();
+  renderLegend();
+  renderPhone();
+  renderRep();
+  renderStatus();
+  renderSafehouse();
+  Radar.sync();
+}
+// Re-render a container without losing keyboard focus: elements carry data-fk keys.
+function withFocus(container, fn){
+  const a = document.activeElement;
+  const key = a && container.contains(a) ? a.dataset.fk : null;
+  fn();
+  if (key){ const n = container.querySelector(`[data-fk="${CSS.escape(key)}"]`); if (n) n.focus({preventScroll: true}); }
+}
+
+let shownRep = null, repAnim = 0;
+function renderHUD(){
+  const rep = respect(), i = rankIndex(rep), next = RANKS[i + 1];
+  $('#hud-rank').textContent = RANKS[i].name;
+  $('#rank-num').textContent = i + 1;
+  const el = $('#hud-rep'), from = shownRep ?? rep;
+  shownRep = rep;
+  cancelAnimationFrame(repAnim);
+  if (from === rep || reduceMotion.matches) el.textContent = rep.toLocaleString('en-US');
+  else {
+    const t0 = performance.now();
+    const step = t => { const k = Math.min(1, (t - t0) / 700); el.textContent = Math.round(from + (rep - from) * (1 - Math.pow(1 - k, 3))).toLocaleString('en-US'); if (k < 1) repAnim = requestAnimationFrame(step); };
+    repAnim = requestAnimationFrame(step);
+  }
+  const pct = next ? (rep - RANKS[i].min) / (next.min - RANKS[i].min) : 1;
+  $('#bar-rep').style.width = (pct * 100).toFixed(1) + '%';
+  $('#bar-rep-l').textContent = next ? `${next.min - rep} to ${next.name}` : 'Top rank';
+  const fv = state.energy;
+  $('#bar-fuel').style.width = fv ? fv * 25 + '%' : '0%';
+  $('#bar-fuel-l').textContent = fv ? FUEL[fv - 1].label : 'Not set';
+}
+
+function fuelSVG(v){ return `<svg viewBox="0 0 30 14" aria-hidden="true">${[0, 1, 2, 3].map(i => `<rect x="${i * 7.8}" y="${9 - i * 3}" width="6" height="${5 + i * 3}"${i < v ? ' class="on"' : ''}/>`).join('')}</svg>`; }
+function renderFuel(){
+  $('#fuel').innerHTML = FUEL.map(e => `<button class="fuel-btn" role="radio" aria-checked="${state.energy === e.v}" data-act="fuel" data-v="${e.v}" data-fk="fuel:${e.v}" title="${esc(e.hint)}">${fuelSVG(e.v)}${e.label}</button>`).join('');
+}
+
+function todayPick(){
+  const act = activeFriends();
+  if (!act.length) return null;
+  const tk = dayKey();
+  if (prefs.pick && prefs.pick.date === tk){
+    const f = state.friends.get(prefs.pick.id);
+    if (f && !f.resting) return f;
+  }
+  const ranked = act.slice().sort((a, b) => drift(b) - drift(a) || a.name.localeCompare(b.name));
+  const pool = ranked.slice(0, Math.min(5, ranked.length));
+  const f = pool[hashStr(tk) % pool.length];
+  prefs.pick = {date: tk, id: f.id}; savePrefs();
+  return f;
+}
+function nextPick(){
+  const act = activeFriends();
+  if (act.length < 2) return;
+  const tk = dayKey(), cur = prefs.pick && prefs.pick.id;
+  const seen = new Set(prefs.seen && prefs.seen.date === tk ? prefs.seen.ids : []);
+  seen.add(cur);
+  const ranked = act.slice().sort((a, b) => drift(b) - drift(a) || a.name.localeCompare(b.name));
+  let f = ranked.find(x => !seen.has(x.id));
+  if (!f){ seen.clear(); seen.add(cur); f = ranked.find(x => !seen.has(x.id)); }
+  prefs.seen = {date: tk, ids: [...seen]};
+  prefs.pick = {date: tk, id: f.id}; savePrefs();
+  Sound.play('ring');
+  renderMission();
+}
+
+function kindChip(f, k, extra = ''){
+  const K = KINDS[k], like = likesKind(f, k);
+  return `<button class="chip${like ? ' liked' : ''}${extra}" style="--k:${K.color}" data-act="log" data-id="${esc(f.id)}" data-kind="${k}" data-fk="log:${esc(f.id)}:${k}"${like ? ` title="${esc(first(f))} likes this"` : ''}>${ico(K.icon)}${K.label}<span class="rep">+${K.rep}</span></button>`;
+}
+function avatar(f, size = 46){
+  return `<span class="avatar${f.safe ? ' safe' : ''}${f.resting ? ' resting' : ''}" style="--h:${f.hue};--sz:${size}px" aria-hidden="true">${esc(f.glyph || initials(f))}</span>`;
+}
+
+function renderMission(){
+  renderFuel();
+  $('#mission-date').textContent = 'Contact mission · ' + new Date().toLocaleDateString('en-US', {weekday: 'long', day: 'numeric', month: 'short'});
+  const el = $('#mission-body'), card = $('#mission');
+  const f = todayPick();
+  Radar.setPulse(f ? f.id : null);
+  if (!f){
+    card.classList.remove('ringing');
+    el.innerHTML = state.friends.size
+      ? `<p class="soft-empty">Everyone's laying low right now. That's allowed.</p>`
+      : `<p class="soft-empty">Add your people on the phone and one of them shows up here each day. Just one. That's the whole job.</p>`;
+    return;
+  }
+  const d = drift(f), z = zoneOf(d), lc = lastContact(f), lastLog = lastContactLog(f), n = first(f);
+  const done = loggedToday(f);
+  card.classList.toggle('ringing', !done);
+  const bd = nextBirthday(f);
+  const lines = [];
+  if (bd && bd.days <= 14) lines.push(['Birthday', bd.days === 0 ? 'Today!' : `In ${bd.days} ${bd.days === 1 ? 'day' : 'days'} (${MONTHS[bd.date.getMonth()]} ${bd.date.getDate()})`]);
+  if (lastLog && lastLog.note) lines.push(['Last time', lastLog.note]);
+  if (f.topics[0]) lines.push(['Ask about', f.topics[0].text]);
+  if (f.memories[0]) lines.push(['Intel', f.memories[0].text]);
+  const who = `<button class="t-who" data-act="open" data-id="${esc(f.id)}" data-fk="t-open">${avatar(f, 62)}<span><span class="t-name">${esc(f.name)}</span><span class="t-meta">${[f.pronouns, f.how].filter(Boolean).map(esc).join(' · ') || 'Open their dossier'}</span></span></button>`;
+  const status = `<p class="t-status z-${z.key}"><b>${z.label}</b> ${lc !== null ? `Last in touch ${ago(lc)}${lastLog && lastLog.at === lc ? ` (${KINDS[lastLog.kind].past.toLowerCase()})` : ', roughly'}.` : 'No moves logged yet.'}</p>`;
+  const linesHTML = lines.length ? `<ul class="t-lines">${lines.map(([k, v]) => `<li><span class="k">${k}</span><span>${esc(v)}</span></li>`).join('')}</ul>` : '';
+  const board = Bridge.can('jobs') ? `<button class="btn small" data-act="board" data-id="${esc(f.id)}" data-fk="t-board">${ico('i-board')} Put it on my board</button>` : '';
+  withFocus(el, () => {
+    if (done){
+      const last = f.log[0];
+      const replyNote = last && ['text', 'voice', 'react'].includes(last.kind)
+        ? `<p class="fine">If they're slow to reply, it's almost always about their week, not about you.</p>` : '';
+      el.innerHTML = `${who}
+        <p class="t-done"><span class="passed">Mission passed</span><span>You looked out for <b>${esc(n)}</b> today.</span></p>
+        ${replyNote}
+        ${activeFriends().length > 1 ? `<div class="row"><button class="btn ghost small" data-act="next-pick" data-fk="t-next">${ico('i-shuffle')} Another one? Totally optional.</button></div>` : ''}`;
+      return;
+    }
+    const maxCost = state.energy === null || state.energy === 4 ? 9 : state.energy - 1;
+    const kinds = KIND_ORDER.filter(k => KINDS[k].cost <= maxCost);
+    const e = FUEL.find(x => x.v === state.energy);
+    el.innerHTML = `${who}${status}${linesHTML}
+      <div class="t-do">
+        <p class="q">What's the move?<span>${e ? esc(e.hint) : 'Set your fuel above and this list shrinks to fit.'}</span></p>
+        <div class="chips">${kinds.map(k => kindChip(f, k)).join('')}</div>
+      </div>
+      <div class="row">
+        <button class="btn small" data-act="say" data-id="${esc(f.id)}" data-fk="t-say">${ico('i-bubble')} What do I say?</button>
+        ${board}
+        ${activeFriends().length > 1 ? `<button class="btn ghost small" data-act="next-pick" data-fk="t-next">${ico('i-shuffle')} Someone else</button>` : ''}
+      </div>
+      <p class="fine">Skipping is fine. No heat, no wanted stars.</p>`;
+  });
+}
+
+function renderLegend(){
+  const act = activeFriends();
+  const counts = Object.fromEntries(ZONES.map(z => [z.key, 0]));
+  act.forEach(f => counts[zoneOf(drift(f)).key]++);
+  withFocus($('#legend'), () => {
+    $('#legend').innerHTML = ZONES.map(z => `<button class="zchip z-${z.key}" data-act="zone" data-v="${z.key}" aria-pressed="${state.zone === z.key}" data-fk="zone:${z.key}" title="${z.blurb}"><span class="zdot"></span>${z.label} <span class="n">${counts[z.key]}</span></button>`).join('');
+  });
+  const empty = $('#radar-empty');
+  if (!act.length){
+    empty.hidden = false;
+    empty.innerHTML = state.friends.size
+      ? `<p>Everyone's laying low. The streets are quiet.</p>`
+      : `<p class="eyebrow">Radar's empty</p><p>Add someone on the phone and they'll show up as a blip.</p><button class="btn primary small" data-act="add-focus">${ico('i-plus')} Add a homie</button>`;
+  } else empty.hidden = true;
+}
+
+function lastLineText(f){
+  const bd = nextBirthday(f);
+  if (bd && bd.days <= 14) return `<span class="bd">${ico('i-cake')} Birthday ${bd.days === 0 ? 'today' : bd.days === 1 ? 'tomorrow' : `in ${bd.days} days`}</span>`;
+  const l = lastContactLog(f), lc = lastContact(f);
+  if (l && l.at === lc) return `${esc(KINDS[l.kind].past)} ${ago(l.at)}`;
+  if (lc !== null) return `Roughly ${ago(lc)}`;
+  return f.how ? esc(f.how) : 'No moves yet';
+}
+function personRow(f){
+  const open = state.expanded.has(f.id);
+  return `<div class="prow${f.resting ? ' is-resting' : ''}" data-id="${esc(f.id)}" style="--h:${f.hue}">
+    <button class="p-open" data-act="open" data-id="${esc(f.id)}" data-fk="open:${esc(f.id)}">
+      <span class="p-dot${f.safe ? ' safe' : ''}" aria-hidden="true"></span>
+      <span class="p-text"><span class="p-name">${esc(f.name)}${f.pronouns ? ` <span class="p-pron">${esc(f.pronouns)}</span>` : ''}</span><span class="p-sub">${lastLineText(f)}</span></span>
+    </button>
+    <button class="icon-btn th" data-act="log" data-kind="thought" data-id="${esc(f.id)}" data-fk="th:${esc(f.id)}" title="Thought of ${esc(first(f))}" aria-label="Thought of ${esc(first(f))}">${ico('i-spark')}</button>
+    <button class="icon-btn" data-act="expand" data-id="${esc(f.id)}" data-fk="ex:${esc(f.id)}" aria-expanded="${open}" aria-label="Log a move with ${esc(first(f))}">${ico('i-plus')}</button>
+    ${open ? `<div class="p-logrow">${KIND_ORDER.filter(k => k !== 'thought').map(k => kindChip(f, k, ' small')).join('')}</div>` : ''}
+  </div>`;
+}
+function matches(f, q){
+  if (!q) return true;
+  const hay = [f.name, f.how, f.circle, f.pronouns, ...f.memories.map(x => x.text), ...f.topics.map(x => x.text), ...f.log.map(l => l.note)].join(' ').toLowerCase();
+  return q.split(/\s+/).every(w => hay.includes(w));
+}
+function renderPhone(){
+  const all = allFriends();
+  $('#people-count').textContent = all.length ? all.length : '';
+  $('#example-banner').hidden = !all.some(f => f.example);
+  const crews = [...new Set(all.map(f => f.circle).filter(Boolean))].sort();
+  if (state.crew !== 'all' && !crews.includes(state.crew)) state.crew = 'all';
+  $('#crew-list').innerHTML = crews.map(c => `<option value="${esc(c)}"></option>`).join('');
+  withFocus($('#crew-chips'), () => {
+    $('#crew-chips').innerHTML = crews.length ? ['all', ...crews].map(c => `<button class="chip small" data-act="crew" data-v="${esc(c)}" aria-pressed="${state.crew === c}" data-fk="crew:${esc(c)}">${c === 'all' ? 'All crews' : esc(c)}</button>`).join('') : '';
+  });
+  const q = state.search.trim().toLowerCase();
+  const pass = f => matches(f, q) && (state.crew === 'all' || f.circle === state.crew);
+  const act = activeFriends().filter(pass).filter(f => !state.zone || zoneOf(drift(f)).key === state.zone);
+  const notes = [];
+  if (state.zone){ const z = ZONES.find(x => x.key === state.zone); notes.push(`Showing ${z.label} only`); }
+  if (q) notes.push(`Matching "${esc(state.search.trim())}"`);
+  const fn = $('#filter-note');
+  fn.hidden = !notes.length;
+  fn.innerHTML = notes.length ? `${notes.join(' · ')} <button class="btn ghost small" data-act="clear-filters">Show everyone</button>` : '';
+  const sorters = {
+    wave: (a, b) => drift(b) - drift(a) || a.name.localeCompare(b.name),
+    orbit: (a, b) => drift(a) - drift(b) || a.name.localeCompare(b.name),
+    az: (a, b) => a.name.localeCompare(b.name),
+    new: (a, b) => b.createdAt - a.createdAt,
+  };
+  act.sort(sorters[state.sort] || sorters.wave);
+  let html = '';
+  if (!all.length) html = `<p class="soft-empty">No contacts yet. Who's someone you'd like to keep closer?</p>`;
+  else if (!act.length && activeFriends().length) html = `<p class="soft-empty">Nobody matches that.</p>`;
+  else if (state.sort === 'wave' || state.sort === 'orbit'){
+    const zs = state.sort === 'wave' ? [...ZONES].reverse() : ZONES;
+    for (const z of zs){
+      const g = act.filter(f => zoneOf(drift(f)).key === z.key);
+      if (!g.length) continue;
+      html += `<div class="zone-h z-${z.key}"><h3>${z.label}</h3><p>${z.blurb}</p><span class="n">${g.length}</span></div><div class="list">${g.map(personRow).join('')}</div>`;
+    }
+  } else html = `<div class="list">${act.map(personRow).join('')}</div>`;
+  withFocus($('#people-list'), () => { $('#people-list').innerHTML = html; });
+  const resting = all.filter(f => f.resting && pass(f)).sort((a, b) => a.name.localeCompare(b.name));
+  $('#resting').hidden = !resting.length;
+  $('#resting-n').textContent = resting.length ? `(${resting.length})` : '';
+  withFocus($('#resting-list'), () => { $('#resting-list').innerHTML = resting.map(personRow).join(''); });
+}
+
+function renderRep(){
+  const rep = respect(), i = rankIndex(rep), next = RANKS[i + 1];
+  const real = allFriends().filter(f => !f.example);
+  const weekAgo = Date.now() - 7 * DAY;
+  const week = real.reduce((s, f) => s + f.log.filter(l => l.at >= weekAgo).length, 0);
+  const people = real.filter(f => f.log.some(l => l.at >= weekAgo)).length;
+  const ups = allFriends().filter(f => !f.resting).map(f => ({f, b: nextBirthday(f)})).filter(x => x.b && x.b.days <= 30).sort((a, b) => a.b.days - b.b.days).slice(0, 5);
+  withFocus($('#rep-body'), () => {
+    $('#rep-body').innerHTML = `
+      <div class="rep-big"><p class="rep-n">${rep.toLocaleString('en-US')}<small>respect</small></p></div>
+      <div><p class="rep-rank">${esc(RANKS[i].name)}</p><p class="rep-next">${next ? `${next.min - rep} more to <b>${esc(next.name)}</b>` : "You're at the top. Legend."}</p></div>
+      <p class="week">${week ? `<b>${week}</b> ${week === 1 ? 'move' : 'moves'} this week with <b>${people}</b> ${people === 1 ? 'homie' : 'homies'}.` : 'No moves this week yet. Thinking of someone counts.'}</p>
+      ${ups.length ? `<div class="upcoming"><p class="eyebrow">Coming up</p>${ups.map(({f, b}) => `<button class="up-item" data-act="open" data-id="${esc(f.id)}" data-fk="up:${esc(f.id)}">${ico('i-cake')}<span><b>${esc(f.name)}</b> · ${b.days === 0 ? 'birthday today!' : b.days === 1 ? 'birthday tomorrow' : `birthday in ${b.days} days`}</span></button>`).join('')}</div>` : ''}
+      <details class="ladder"${prefs.ladder ? ' open' : ''}><summary data-act="ladder">Rank ladder</summary><ol>${RANKS.map((r, k) => `<li class="${rep >= r.min ? 'got' : ''}${k === i ? ' now' : ''}"><span>${esc(r.name)}</span><span>${r.min.toLocaleString('en-US')}</span></li>`).join('')}</ol></details>
+      <p class="respect-note">Respect only goes up. Every move counts, even just thinking of someone.</p>`;
+  });
+}
+
+function renderStatus(){
+  const el = $('#status');
+  el.classList.toggle('bad', !Store.ok);
+  $('#status-text').textContent = Store.ok ? 'Saved on this device' : "Couldn't save here. Back up now.";
+}
+
+function renderSafehouse(){
+  document.body.classList.toggle('safehouse', state.safehouse);
+  $('#safehouse').hidden = !state.safehouse;
+  const b = $('#safe-btn');
+  b.setAttribute('aria-pressed', String(state.safehouse));
+  if (!state.safehouse) return;
+  const safe = activeFriends().filter(f => f.safe);
+  $('#safe-list').innerHTML = safe.length
+    ? safe.map(f => `<div class="h-person"><button class="h-open" data-act="open" data-id="${esc(f.id)}">${avatar(f, 40)}<span><b>${esc(f.name)}</b><span class="fine">${esc(f.how || 'Safehouse homie')}</span></span></button><button class="btn small" data-act="copy" data-text="${esc(SAFE_MSG)}">${ico('i-copy')} Copy the message</button></div>`).join('')
+    : `<p class="fine">Nobody marked as a safehouse homie yet. When you feel up to it, open someone's dossier and switch on "Safehouse homie".</p>`;
+}
+
+/* ---------- dossier ---------- */
+let lastFocus = null;
+function openDrawer(id, section){
+  const f = state.friends.get(id); if (!f) return;
+  if (state.openId !== id){ state.noteFor = null; state.showAllLog = false; state.confirmDelete = false; }
+  if (!state.openId) lastFocus = document.activeElement;
+  state.openId = id;
+  $('#drawer').hidden = false;
+  $('#scrim').hidden = false;
+  renderDrawer();
+  if (section){ const s = $('#' + section); if (s) s.scrollIntoView({block: 'start'}); }
+  setTimeout(() => { const n = section ? $(`#${section} button`) : $('#d-close'); if (n) n.focus({preventScroll: true}); }, 30);
+}
+function closeDrawer(){
+  if (!state.openId) return;
+  // save a field that's still being typed in
+  const a = document.activeElement;
+  if (a && a.dataset && a.dataset.field && $('#drawer').contains(a)) a.dispatchEvent(new Event('change', {bubbles: true}));
+  state.openId = null; state.noteFor = null; state.confirmDelete = false;
+  $('#drawer').hidden = true; $('#drawer').innerHTML = '';
+  $('#scrim').hidden = true;
+  if (lastFocus && document.contains(lastFocus)) lastFocus.focus({preventScroll: true});
+}
+function messageIdeas(f){
+  const n = first(f), topic = f.topics[0] && f.topics[0].text;
+  const lc = lastContact(f), long = lc === null || (Date.now() - lc) / DAY > 45;
+  const bd = nextBirthday(f), out = [];
+  if (bd && bd.days === 0) out.push(`Happy birthday, ${n}! Hope today treats you right.`);
+  else if (bd && bd.days <= 7) out.push(`Yo ${n}, your birthday's coming up and I didn't want to forget. Any plans?`);
+  if (topic) out.push(`Hey ${n}! Was just thinking about ${topic}. How's that going? No rush to answer.`);
+  out.push(`Hey ${n}, you crossed my mind today. No need to reply, just sending a wave.`);
+  if (long) out.push(`Hi ${n}! It's been a minute and I didn't want it to be longer. I'd love to hear how you're doing, whenever you've got the space.`);
+  if (f.channels.includes('memes') || f.channels.includes('social')) out.push(`Saw this and immediately thought of you 😂`);
+  else out.push(`Saw something today that reminded me of you and it made me smile. Hope your week's being kind to you.`);
+  if (f.channels.includes('games')) out.push(`Yo ${n}, down for a game this week? All good if not.`);
+  else if (f.channels.includes('irl') && !long) out.push(`Wanna grab food or go for a walk sometime soon? Zero pressure.`);
+  return out.slice(0, 5);
+}
+function listEdit(f, key, ph){
+  return `<ul class="lst">${f[key].map(x => `<li><span>${esc(x.text)}</span><button class="icon-btn sm" data-act="del-item" data-key="${key}" data-item="${esc(x.id)}" aria-label="Remove ${esc(x.text)}" data-fk="del:${esc(x.id)}">${ico('i-x')}</button></li>`).join('')}</ul>
+    <form class="add-line" data-form="item" data-key="${key}"><input class="field" maxlength="160" placeholder="${esc(ph)}" aria-label="${esc(ph)}" data-fk="add:${key}"><button class="btn small" type="submit" aria-label="Add">${ico('i-plus')}</button></form>`;
+}
+function logItem(f, l){
+  const K = KINDS[l.kind];
+  return `<li class="tl"><span class="tl-ico" style="--k:${K.color}">${ico(K.icon)}</span><div class="tl-body"><p><b>${K.past}</b><time>${ago(l.at)}</time>${f.example ? '' : `<span class="tl-rep">+${K.rep}</span>`}</p>${l.note ? `<p class="tl-note">${esc(l.note)}</p>` : ''}</div><button class="icon-btn sm" data-act="del-log" data-log="${esc(l.id)}" aria-label="Remove this entry" data-fk="dl:${esc(l.id)}">${ico('i-trash')}</button></li>`;
+}
+function switchRow(act, on, title, text){
+  return `<div class="switch-row"><div><p class="sw-t">${title}</p><p class="fine">${text}</p></div><button class="switch" role="switch" aria-checked="${on}" data-act="${act}" aria-label="${title}" data-fk="sw:${act}"><span class="knob"></span></button></div>`;
+}
+function drawerHTML(f){
+  const d = drift(f), z = zoneOf(d), lc = lastContact(f), lastLog = lastContactLog(f);
+  const log = state.showAllLog ? f.log : f.log.slice(0, 8);
+  const noteEntry = state.noteFor && f.log.find(l => l.id === state.noteFor);
+  const statusLine = f.resting ? '<b>Laying low</b> · Off the radar for now' : `<b>${z.label}</b> · ${z.blurb}`;
+  return `
+  <header class="d-top"><span class="eyebrow">Dossier</span><button class="icon-btn" id="d-close" data-act="close" aria-label="Close" data-fk="d-close">${ico('i-x')}</button></header>
+  <div class="d-scroll">
+    <div class="d-head">${avatar(f, 72)}<div class="d-id">
+      <label class="sr" for="d-name">Name</label>
+      <input class="d-name" id="d-name" data-field="name" value="${esc(f.name)}" maxlength="60" autocomplete="off">
+      <div class="d-sub">
+        <input class="bare pron" data-field="pronouns" value="${esc(f.pronouns)}" maxlength="30" placeholder="pronouns" aria-label="Pronouns" autocomplete="off">
+        <input class="bare grow" data-field="how" value="${esc(f.how)}" maxlength="80" placeholder="how you know them" aria-label="How you know them" autocomplete="off">
+      </div>
+    </div></div>
+    ${f.example ? `<p class="d-example">This is an example homie. Change anything you like; it won't count toward your respect.</p>` : ''}
+    <div class="d-status" style="--zc:${f.resting ? 'var(--dusk)' : z.color}">
+      <p>${statusLine}</p>
+      <p class="muted">${lc !== null ? `Last in touch ${ago(lc)}${lastLog && lastLog.at === lc ? ` (${KINDS[lastLog.kind].past.toLowerCase()})` : ', roughly'}.` : 'No moves logged yet. Roughly when did you last talk?'}</p>
+      ${lc === null ? `<div class="chips">${[['week', 'This week'], ['month', 'This month'], ['months', 'A few months ago'], ['ages', 'Ages ago']].map(([k, l]) => `<button class="chip small" data-act="approx" data-v="${k}" data-fk="ap:${k}">${l}</button>`).join('')}</div>` : ''}
+    </div>
+    <section class="d-sec" id="d-moves">
+      <h3 class="eyebrow">Log a move</h3>
+      <div class="chips">${KIND_ORDER.map(k => kindChip(f, k)).join('')}</div>
+      ${noteEntry ? `<form class="note-form" data-form="note"><label for="d-note">How'd it go? (optional)</label><textarea class="field" id="d-note" rows="2" maxlength="280" placeholder="Anything to remember for next time">${esc(noteEntry.note)}</textarea><div class="row"><button class="btn small" type="submit">Save note</button><button class="btn ghost small" type="button" data-act="skip-note">Skip</button></div></form>` : ''}
+    </section>
+    <section class="d-sec" id="d-say">
+      <h3 class="eyebrow">What do I say?</h3>
+      <div class="ideas">${messageIdeas(f).map((t, i) => `<div class="idea"><p>${esc(t)}</p><button class="icon-btn sm" data-act="copy" data-text="${esc(t)}" aria-label="Copy this message" data-fk="idea:${i}">${ico('i-copy')}</button></div>`).join('')}</div>
+      <p class="fine">Copy one, make it yours, send it from your real phone.</p>
+    </section>
+    <section class="d-sec d-grid">
+      <div><h3 class="eyebrow">Intel</h3>${listEdit(f, 'memories', 'Something to remember')}</div>
+      <div><h3 class="eyebrow">Ask about</h3>${listEdit(f, 'topics', "Something going on for them")}</div>
+    </section>
+    <section class="d-sec d-grid">
+      <div><label class="eyebrow" for="d-rhythm">Check in</label><select class="field" id="d-rhythm" data-field="rhythm">${Object.entries(RHYTHMS).map(([k, r]) => `<option value="${k}"${f.rhythm === k ? ' selected' : ''}>${r.label}</option>`).join('')}</select></div>
+      <div><label class="eyebrow" for="d-crew">Crew</label><input class="field" id="d-crew" data-field="circle" list="crew-list" maxlength="30" value="${esc(f.circle)}" placeholder="family, work, gaming…" autocomplete="off"></div>
+      <div><span class="eyebrow" id="d-bd-l">Birthday</span><div class="bd-pick" role="group" aria-labelledby="d-bd-l">
+        <select class="field" data-field="bmonth" aria-label="Birthday month"><option value="">Month</option>${MONTHS.map((m, i) => `<option value="${i + 1}"${f.birthday && f.birthday.m === i + 1 ? ' selected' : ''}>${m.slice(0, 3)}</option>`).join('')}</select>
+        <input class="field" type="number" inputmode="numeric" min="1" max="31" data-field="bday" aria-label="Birthday day" placeholder="Day" value="${f.birthday ? f.birthday.d : ''}">
+      </div></div>
+      <div><label class="eyebrow" for="d-glyph">Blip label</label><input class="field" id="d-glyph" data-field="glyph" maxlength="8" value="${esc(f.glyph)}" placeholder="${esc(initials(f))}" autocomplete="off"></div>
+    </section>
+    <section class="d-sec">
+      <h3 class="eyebrow">How they roll</h3>
+      <div class="chips">${Object.entries(CHANNELS).map(([k, l]) => `<button class="chip small" data-act="channel" data-v="${k}" aria-pressed="${f.channels.includes(k)}" data-fk="ch:${k}">${l}</button>`).join('')}</div>
+      <p class="fine">Moves they like get a little green diamond.</p>
+    </section>
+    <section class="d-sec">
+      <h3 class="eyebrow">Blip colour</h3>
+      <div class="swatches">${HUES.map(h => `<button class="swatch" style="--h:${h}" data-act="hue" data-v="${h}" aria-pressed="${f.hue === h}" aria-label="${HUE_NAMES[h]}" data-fk="hue:${h}"></button>`).join('')}</div>
+    </section>
+    <section class="d-sec">
+      ${switchRow('safe', f.safe, 'Safehouse homie', 'Someone you can lean on. They show up in Safehouse mode on a hard day.')}
+      ${switchRow('rest', f.resting, 'Laying low', 'Off the radar for now. Not suggested. Nothing is deleted.')}
+      ${f.resting ? `<input class="field" data-field="restNote" value="${esc(f.restNote)}" maxlength="120" placeholder="A note for future you (optional)" aria-label="Note about laying low" autocomplete="off">` : ''}
+    </section>
+    <section class="d-sec">
+      <h3 class="eyebrow">History</h3>
+      ${f.log.length ? `<ul class="timeline">${log.map(l => logItem(f, l)).join('')}</ul>` : `<p class="fine">Nothing yet. Every move you log shows up here.</p>`}
+      ${f.log.length > 8 ? `<div><button class="btn ghost small" data-act="all-log">${state.showAllLog ? 'Show less' : `Show all ${f.log.length}`}</button></div>` : ''}
+    </section>
+    <section class="d-sec d-danger">
+      ${state.confirmDelete
+        ? `<p>Delete ${esc(first(f))} from your phone? Their history goes too. (You keep the respect.)</p><div class="row"><button class="btn solid-danger small" data-act="delete-yes" data-fk="del-yes">${ico('i-trash')} Delete for good</button><button class="btn ghost small" data-act="delete-no">Keep them</button></div>`
+        : `<button class="btn danger small" data-act="delete" data-fk="del">${ico('i-trash')} Delete from phone</button><p class="fine">Laying low is gentler if you just need a break.</p>`}
+    </section>
+  </div>`;
+}
+function renderDrawer(){
+  const f = state.friends.get(state.openId);
+  if (!f){ closeDrawer(); return; }
+  const dr = $('#drawer'), sc = $('.d-scroll', dr), top = sc ? sc.scrollTop : 0;
+  withFocus(dr, () => { dr.innerHTML = drawerHTML(f); });
+  const ns = $('.d-scroll', dr); if (ns) ns.scrollTop = top;
+}
+
+/* ---------- actions ---------- */
+function logKind(id, kind, {fromBoard = false} = {}){
+  const f = state.friends.get(id); if (!f || !KINDS[kind]) return;
+  const K = KINDS[kind];
+  const before = rankIndex(respect());
+  const entry = {id: uid('l'), kind, at: Date.now(), note: ''};
+  f.log.unshift(entry);
+  if (f.log.length > 200) f.log.length = 200;
+  if (state.openId === id) state.noteFor = entry.id;
+  state.expanded.delete(id);
+  commit(f);
+  const after = rankIndex(respect());
+  Radar.burst(id, K.size, K.color);
+  const promoted = after > before ? after : null;
+  Sound.play(promoted != null ? 'promo' : K.size >= 3 ? 'big' : K.size === 0 ? 'thought' : K.size === 1 ? 'small' : 'move');
+  const row = document.querySelector(`.prow[data-id="${CSS.escape(id)}"]`);
+  if (row){ row.classList.remove('flash'); void row.offsetWidth; row.classList.add('flash'); }
+  if (!f.example && (K.size >= 3 || promoted != null)){
+    showPassed({
+      kicker: promoted != null ? 'Rank up' : 'Mission passed',
+      stamp: promoted != null ? 'Promoted' : pickOne(STAMPS[kind] || ['Respect+']),
+      sub: `${esc(f.name)} · <b>+${K.rep} respect</b>${promoted != null ? `<span class="ov-promo">You're now ${esc(RANKS[promoted].name)}</span>` : ''}`,
+    });
+  }
+  const line = pickOne(kind === 'thought' ? THOUGHT_LINES : CONTACT_LINES).replace('{n}', first(f));
+  toast(line, {rep: f.example ? 0 : K.rep, undo: () => {
+    const g = state.friends.get(id); if (!g) return;
+    g.log = g.log.filter(l => l.id !== entry.id);
+    if (state.noteFor === entry.id) state.noteFor = null;
+    commit(g);
+  }});
+  if (!fromBoard) Bridge.send({type: 'move', homieId: id, name: f.name, kind, size: K.size, rep: f.example ? 0 : K.rep, respect: respect(), rank: RANKS[after].name});
+  if (state.openId === id) setTimeout(() => { const n = $('#d-note'); if (n) n.focus({preventScroll: false}); }, 30);
+}
+
+function leastUsedHue(){
+  const count = new Map(HUES.map(h => [h, 0]));
+  allFriends().forEach(f => { if (count.has(f.hue)) count.set(f.hue, count.get(f.hue) + 1); });
+  let best = HUES[0];
+  for (const h of HUES) if (count.get(h) < count.get(best)) best = h;
+  return best;
+}
+function addFriend(name, how){
+  const f = normFriend({id: uid('f'), name, how, hue: leastUsedHue(), createdAt: Date.now()});
+  if (!f) return null;
+  commit(f);
+  Sound.play('add');
+  toast(`${first(f)} is on your radar now.`, {
+    action: {label: 'Add details', fn: () => openDrawer(f.id)},
+    undo: () => { state.friends.delete(f.id); Store.save(); renderAll(); },
+  });
+  return f;
+}
+function addMany(text){
+  const have = new Set(allFriends().map(f => f.name.toLowerCase()));
+  const names = [...new Set(text.split(/[\n,;]+/).map(s => s.trim().slice(0, 60)).filter(Boolean))].filter(n => !have.has(n.toLowerCase())).slice(0, 300);
+  if (!names.length){ toast("Everyone on that list is already in your phone."); return false; }
+  const added = [];
+  names.forEach((name, i) => {
+    const f = normFriend({id: uid('f'), name, hue: leastUsedHue(), createdAt: Date.now() + i});
+    if (f){ state.friends.set(f.id, f); added.push(f.id); }
+  });
+  Store.save(); renderAll();
+  Sound.play('add');
+  toast(`Added ${added.length} ${added.length === 1 ? 'homie' : 'homies'}. They're all on your radar.`, {undo: () => {
+    added.forEach(id => state.friends.delete(id)); Store.save(); renderAll();
+  }});
+  return true;
+}
+
+function makeExamples(now){
+  const d = n => now - n * DAY;
+  const L = (kind, daysAgo, note) => ({id: uid('l'), kind, at: d(daysAgo), note: note || ''});
+  const N = text => ({id: uid('n'), text});
+  const soon = new Date(now + 6 * DAY);
+  return [
+    {name:'Sam Okafor', pronouns:'they/them', how:'art school, still makes zines', circle:'school', hue:198, rhythm:'fortnight', channels:['memes','text'],
+     memories:[N('Cat named Pickle'), N('Phone calls stress them out, texts are best')], topics:[N('the zine launch')],
+     log:[L('text', 19, 'They were nervous about the zine launch'), L('react', 33)], safe:true, createdAt:d(120)},
+    {name:'Priya Nair', pronouns:'she/her', how:'old roommate', circle:'old friends', hue:318, rhythm:'monthly', channels:['calls','voice'],
+     memories:[N('Moved interstate in the spring')], topics:[N('the new flat')],
+     log:[L('call', 9, 'Talked for an hour. She sounds happier.')], birthday:{m: soon.getMonth() + 1, d: soon.getDate()}, createdAt:d(118)},
+    {name:'Marcus Bell', pronouns:'he/him', how:'Friday GTA nights on Discord', circle:'gaming', hue:222, rhythm:'weekly', channels:['games','memes'],
+     memories:[N('Always drives the getaway car')], topics:[], log:[L('game', 3, 'Finally pulled off the heist'), L('they', 10)], safe:true, createdAt:d(116)},
+    {name:'Auntie Rose', pronouns:'she/her', how:'family, the good auntie', circle:'family', hue:12, rhythm:'monthly', channels:['calls','letters'],
+     memories:[N('Loves getting real post')], topics:[N('her tomato plants')], log:[L('call', 74)], createdAt:d(114)},
+    {name:'Noor Haddad', pronouns:'she/they', how:'climbing gym', circle:'climbing', hue:150, rhythm:'fortnight', channels:['irl','text'],
+     memories:[], topics:[N('the comp in November')], log:[L('thought', 2), L('hang', 41, 'Bouldering, then tacos')], createdAt:d(110)},
+    {name:'Jules Moreau', pronouns:'he/him', how:'work, the good one', circle:'work', hue:282, rhythm:'seasonal', channels:['text'],
+     memories:[N('Just had a baby')], topics:[], log:[], approxLast:d(100), createdAt:d(60)},
+    {name:'Dev Patel', pronouns:'he/him', how:'college', circle:'school', hue:28, rhythm:'monthly', channels:['text'],
+     memories:[], topics:[], log:[], resting:true, restNote:'Taking some space for now', createdAt:d(100)},
+  ].map(r => normFriend({...r, id: uid('f'), example: true, updatedAt: now}));
+}
+function clearExamples(){
+  const ex = allFriends().filter(f => f.example);
+  ex.forEach(f => state.friends.delete(f.id));
+  if (state.openId && !state.friends.has(state.openId)) closeDrawer();
+  Store.save(); renderAll();
+  toast('Examples cleared. The radar is all yours.', {undo: () => { ex.forEach(f => state.friends.set(f.id, f)); Store.save(); renderAll(); }});
+}
+function deleteFriend(id){
+  const f = state.friends.get(id); if (!f) return;
+  const kept = repOf(f);
+  state.friends.delete(id);
+  state.bonus += kept;
+  state.expanded.delete(id);
+  closeDrawer();
+  Store.save(); renderAll();
+  toast(`${first(f)} was deleted.`, {undo: () => { state.friends.set(f.id, f); state.bonus = Math.max(0, state.bonus - kept); Store.save(); renderAll(); }});
+}
+function setEnergy(v){
+  state.energy = state.energy === v ? null : v;
+  prefs.energy = state.energy ? {date: dayKey(), v: state.energy} : null; savePrefs();
+  Sound.play('tap');
+  renderMission(); renderHUD();
+}
+function setSafehouse(on){
+  state.safehouse = on;
+  prefs.safehouse = on; savePrefs();
+  closeDrawer();
+  renderSafehouse();
+  Radar.kick();
+  if (on){ Sound.play('safe'); scrollTo({top: 0}); setTimeout(() => $('#safe-h').focus({preventScroll: true}), 30); }
+  announce(on ? 'Safehouse mode on. Nothing here is urgent.' : 'Back on the streets.');
+}
+async function copyText(text){
+  try { await navigator.clipboard.writeText(text); return true; }
+  catch (e) {
+    try {
+      const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select(); const ok = document.execCommand('copy'); ta.remove(); return ok;
+    } catch (e2) { return false; }
+  }
+}
+function announce(msg){ const a = $('#announcer'); a.textContent = ''; setTimeout(() => { a.textContent = msg; }, 30); }
+
+async function backup(){
+  const data = JSON.stringify({app: 'homies', version: 1, exportedAt: new Date().toISOString(), bonus: state.bonus, friends: allFriends()}, null, 2);
+  const filename = `homies-backup-${dayKey()}.json`;
+  try {
+    const file = new File([data], filename, {type: 'application/json'});
+    if (matchMedia('(pointer: coarse)').matches && navigator.canShare && navigator.canShare({files: [file]})){
+      await navigator.share({files: [file], title: 'Homies backup'});
+      toast('Backup shared. Keep it somewhere safe.');
+      return;
+    }
+  } catch (e) { if (e && e.name === 'AbortError'){ toast('No backup saved. That is fine.'); return; } }
+  const url = URL.createObjectURL(new Blob([data], {type: 'application/json'}));
+  const a = document.createElement('a'); a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 3000);
+  toast('Backup downloaded. Keep it somewhere safe.');
+}
+// Takes a Homies backup or a Friend Orbit backup (same people format).
+function importText(text){
+  let arr = null, bonus = 0;
+  try {
+    const p = JSON.parse(text);
+    arr = Array.isArray(p) ? p : (p && Array.isArray(p.friends) ? p.friends : null);
+    if (p && Number.isFinite(p.bonus)) bonus = Math.max(0, p.bonus);
+  } catch (e) {}
+  if (!arr){ toast("That file isn't a Homies or Friend Orbit backup. Nothing was changed."); return; }
+  let added = 0, updated = 0;
+  for (const r of arr.slice(0, 2000)){
+    const f = normFriend(r); if (!f) continue;
+    const cur = state.friends.get(f.id);
+    if (cur && cur.updatedAt >= f.updatedAt) continue;
+    cur ? updated++ : added++;
+    state.friends.set(f.id, f);
+  }
+  state.bonus = Math.max(state.bonus, bonus);
+  Store.save(); renderAll();
+  if (added || updated) Sound.play('move');
+  toast(added || updated
+    ? `Brought back ${added} ${added === 1 ? 'homie' : 'homies'}${updated ? ` and updated ${updated}` : ''}.`
+    : 'Everyone in that backup is already here.');
+}
+
+/* ---------- mission passed overlay ---------- */
+let ovTimer = 0;
+function showPassed({kicker, stamp, sub}){
+  const ov = $('#overlay');
+  $('#ov-kicker').textContent = kicker;
+  $('#ov-stamp').textContent = stamp;
+  $('#ov-sub').innerHTML = sub;
+  ov.hidden = false;
+  ov.classList.remove('is-on'); void ov.offsetWidth; ov.classList.add('is-on');
+  announce(`${kicker}. ${stamp}.`);
+  clearTimeout(ovTimer);
+  ovTimer = setTimeout(hidePassed, 2900);
+}
+function hidePassed(){ clearTimeout(ovTimer); const ov = $('#overlay'); ov.classList.remove('is-on'); ov.hidden = true; }
+
+/* ---------- toast ---------- */
+let toastTimer = 0, toastHandlers = null;
+function hideToast(){ clearTimeout(toastTimer); $('#toast').hidden = true; toastHandlers = null; }
+function toast(msg, opts = {}){
+  const el = $('#toast');
+  toastHandlers = opts;
+  el.innerHTML = `${opts.rep ? `<span class="t-rep">+${opts.rep}</span>` : ''}<span>${esc(msg)}</span>${opts.action ? `<button data-toast="action">${esc(opts.action.label)}</button>` : ''}${opts.undo ? '<button data-toast="undo">Undo</button>' : ''}`;
+  el.hidden = false;
+  el.classList.remove('in'); void el.offsetWidth; el.classList.add('in');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(hideToast, opts.undo || opts.action ? 6500 : 3200);
+}
+$('#toast').addEventListener('click', e => {
+  const b = e.target.closest('[data-toast]'); if (!b || !toastHandlers) return;
+  const h = toastHandlers; hideToast();
+  if (b.dataset.toast === 'undo' && h.undo) h.undo();
+  if (b.dataset.toast === 'action' && h.action) h.action.fn();
+});
+
+/* ---------- events ---------- */
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-act]');
+  if (!t) return;
+  const act = t.dataset.act, id = t.dataset.id || state.openId, v = t.dataset.v;
+  const f = id ? state.friends.get(id) : null;
+  switch (act){
+    case 'open': if (id) { Sound.play('tap'); openDrawer(id); } break;
+    case 'close': closeDrawer(); break;
+    case 'say': if (id) openDrawer(id, 'd-say'); break;
+    case 'log': if (id) logKind(id, t.dataset.kind); break;
+    case 'expand':
+      state.expanded.has(id) ? state.expanded.delete(id) : state.expanded.add(id);
+      renderPhone(); break;
+    case 'next-pick': nextPick(); break;
+    case 'fuel': setEnergy(+v); break;
+    case 'zone':
+      state.zone = state.zone === v ? null : v;
+      Radar.setZone(state.zone); renderLegend(); renderPhone(); break;
+    case 'crew': state.crew = v; renderPhone(); break;
+    case 'clear-filters':
+      state.zone = null; state.search = ''; state.crew = 'all'; $('#search').value = '';
+      Radar.setZone(null); renderLegend(); renderPhone(); break;
+    case 'sound': Sound.toggle(); break;
+    case 'safehouse': setSafehouse(!state.safehouse); break;
+    case 'rep-jump': $('#rep').scrollIntoView({behavior: reduceMotion.matches ? 'auto' : 'smooth', block: 'start'}); break;
+    case 'ladder': setTimeout(() => { prefs.ladder = t.parentElement.open; savePrefs(); }, 0); break;
+    case 'add-focus': $('#add-name').focus(); break;
+    case 'dump-toggle': {
+      const open = $('#dump').hidden;
+      $('#dump').hidden = !open; t.setAttribute('aria-expanded', String(open));
+      if (open) $('#dump-text').focus();
+      break;
+    }
+    case 'clear-examples': clearExamples(); break;
+    case 'backup': backup(); break;
+    case 'import': $('#import-file').click(); break;
+    case 'copy': copyText(t.dataset.text || '').then(ok => toast(ok ? 'Copied. Paste it wherever you message them.' : "Couldn't copy here. You can select the text instead.")); break;
+    case 'board':
+      if (f){ Bridge.send({type: 'add-job', homieId: f.id, name: f.name, text: `Reach out to ${first(f)}`}); toast(`Put "Reach out to ${first(f)}" on your board.`); }
+      break;
+    case 'overlay-close': hidePassed(); break;
+    // dossier
+    case 'approx': if (f) edit(f.id, g => { g.approxLast = Date.now() - APPROX[v] * DAY; }); break;
+    case 'channel': if (f) edit(f.id, g => { g.channels = g.channels.includes(v) ? g.channels.filter(c => c !== v) : [...g.channels, v]; }); break;
+    case 'hue': if (f) edit(f.id, g => { g.hue = +v; }); break;
+    case 'safe': if (f) edit(f.id, g => { g.safe = !g.safe; }); break;
+    case 'rest': if (f){
+      const was = f.resting;
+      edit(f.id, g => { g.resting = !g.resting; });
+      toast(was ? `${first(f)} is back on your radar.` : `${first(f)} is laying low. Nothing is deleted.`);
+    } break;
+    case 'del-item': if (f) edit(f.id, g => { const k = t.dataset.key; g[k] = g[k].filter(x => x.id !== t.dataset.item); }); break;
+    case 'del-log': if (f){
+      const l = f.log.find(x => x.id === t.dataset.log); if (!l) break;
+      edit(f.id, g => { g.log = g.log.filter(x => x.id !== l.id); });
+      toast('Entry removed.', {undo: () => edit(f.id, g => { g.log = [...g.log, l].sort((a, b) => b.at - a.at); })});
+    } break;
+    case 'skip-note': state.noteFor = null; renderDrawer(); break;
+    case 'all-log': state.showAllLog = !state.showAllLog; renderDrawer(); break;
+    case 'delete': state.confirmDelete = true; renderDrawer(); break;
+    case 'delete-no': state.confirmDelete = false; renderDrawer(); break;
+    case 'delete-yes': if (f) deleteFriend(f.id); break;
+  }
+});
+
+document.addEventListener('submit', e => {
+  const form = e.target;
+  e.preventDefault();
+  if (form.id === 'add-form'){
+    const name = $('#add-name').value.trim();
+    if (!name){ $('#add-name').focus(); return; }
+    if (addFriend(name, $('#add-how').value.trim())){ $('#add-name').value = ''; $('#add-how').value = ''; $('#add-name').focus(); }
+  } else if (form.id === 'dump'){
+    if (addMany($('#dump-text').value)){ $('#dump-text').value = ''; $('#dump').hidden = true; $('[data-act="dump-toggle"]').setAttribute('aria-expanded', 'false'); }
+  } else if (form.dataset.form === 'item'){
+    const input = form.querySelector('input'), text = input.value.trim(), key = form.dataset.key;
+    if (!text || !state.openId) return;
+    edit(state.openId, g => { g[key] = [{id: uid('n'), text: text.slice(0, 160)}, ...g[key]].slice(0, 40); });
+    const again = $(`[data-fk="add:${key}"]`); if (again) again.focus();
+  } else if (form.dataset.form === 'note'){
+    const text = $('#d-note').value.trim().slice(0, 280);
+    const nid = state.noteFor;
+    state.noteFor = null;
+    edit(state.openId, g => { const l = g.log.find(x => x.id === nid); if (l) l.note = text; });
+    if (text) toast('Noted for next time.');
+  }
+});
+
+// Dossier fields save when you leave them. The dossier isn't redrawn so focus stays put.
+document.addEventListener('change', e => {
+  const el = e.target;
+  if (el.id === 'import-file'){
+    const file = el.files && el.files[0];
+    if (file){ const r = new FileReader(); r.onload = () => importText(String(r.result || '')); r.readAsText(file); }
+    el.value = '';
+    return;
+  }
+  if (el.id === 'sort'){ state.sort = el.value; prefs.sort = el.value; savePrefs(); renderPhone(); return; }
+  const field = el.dataset.field;
+  if (!field || !state.openId) return;
+  const f = state.friends.get(state.openId); if (!f) return;
+  const val = el.value;
+  switch (field){
+    case 'name': { const n = val.trim().slice(0, 60); if (!n){ el.value = f.name; return; } f.name = n; break; }
+    case 'pronouns': f.pronouns = val.trim().slice(0, 30); break;
+    case 'how': f.how = val.trim().slice(0, 80); break;
+    case 'circle': f.circle = val.trim().slice(0, 30).toLowerCase(); break;
+    case 'rhythm': if (RHYTHMS[val]) f.rhythm = val; break;
+    case 'glyph': f.glyph = Array.from(val.trim()).slice(0, 2).join(''); break;
+    case 'restNote': f.restNote = val.trim().slice(0, 120); break;
+    case 'bmonth': case 'bday': {
+      const m = +$('[data-field="bmonth"]').value, d = +$('[data-field="bday"]').value;
+      f.birthday = m && d ? {m: clamp(m, 1, 12), d: clamp(Math.round(d), 1, 31)} : null;
+      break;
+    }
+  }
+  commit(f, {drawer: false});
+  const av = $('#drawer .d-head .avatar'); if (av) av.textContent = f.glyph || initials(f);
+});
+
+$('#search').addEventListener('input', debounce(e => { state.search = e.target.value; renderPhone(); }, 120));
+$('#sort').value = state.sort;
+
+document.addEventListener('keydown', e => {
+  const typing = e.target.closest('input, textarea, select, [contenteditable]');
+  if (e.key === 'Escape'){
+    if (!$('#overlay').hidden){ hidePassed(); return; }
+    if (state.openId){ closeDrawer(); return; }
+    if (typing && e.target.id === 'search' && e.target.value){ e.target.value = ''; state.search = ''; renderPhone(); }
+    return;
+  }
+  if (typing || e.metaKey || e.ctrlKey || e.altKey || state.safehouse) return;
+  if (e.key === 'n' || e.key === 'N'){ e.preventDefault(); $('#add-name').focus(); }
+  else if (e.key === '/'){ e.preventDefault(); $('#search').focus(); }
+});
+// Keep focus inside the dossier while it's open.
+$('#drawer').addEventListener('keydown', e => {
+  if (e.key !== 'Tab') return;
+  const items = $$('button, input, select, textarea, [href]', $('#drawer')).filter(n => !n.disabled && n.offsetParent !== null);
+  if (!items.length) return;
+  const firstEl = items[0], lastEl = items[items.length - 1];
+  if (e.shiftKey && document.activeElement === firstEl){ e.preventDefault(); lastEl.focus(); }
+  else if (!e.shiftKey && document.activeElement === lastEl){ e.preventDefault(); firstEl.focus(); }
+});
+
+// Another tab (or Mission Possible on the same site) changed your homies: pick it up.
+addEventListener('storage', e => {
+  if (e.key !== LS_KEY) return;
+  Store.load(); renderAll();
+  if (state.openId && !state.friends.has(state.openId)) closeDrawer();
+});
+
+function tickClock(){ $('#clock').textContent = new Date().toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'}); }
+
+/* ---------- boot ---------- */
+(function boot(){
+  const had = Store.load();
+  if (!had && !prefs.seeded){
+    makeExamples(Date.now()).forEach(f => state.friends.set(f.id, f));
+    Store.save();
+  }
+  prefs.seeded = true; savePrefs();
+  if (location.hash === '#safehouse'){ state.safehouse = true; prefs.safehouse = true; savePrefs(); }
+  renderSoundBtn();
+  renderAll();
+  tickClock(); setInterval(tickClock, 20000);
+  // past midnight a fresh homie, fresh fuel and new "ago" labels
+  let today = dayKey();
+  setInterval(() => {
+    if (dayKey() !== today){ today = dayKey(); state.energy = null; renderAll(); }
+    else Radar.sync();
+  }, 60000);
+  Bridge.init();
+  if ('serviceWorker' in navigator && location.protocol === 'https:' && !EMBED) navigator.serviceWorker.register('sw.js').catch(() => {});
+})();
+})();
+</script>
+</body>
+</html>
