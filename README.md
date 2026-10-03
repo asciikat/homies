@@ -51,6 +51,16 @@ Status comes from the **pattern**, weighted towards recent hits:
   (✏️ Edit). Undo right after a hit takes it back, and Edit can clear a
   mis-tap.
 - You can give someone a starting vibe, and your hits take over from there.
+- Status only moves when you rate a new hit. Time passing never demotes anyone,
+  so your Golden homies stay Golden while you're busy.
+
+**⭐ Golden is the top tier: your safest people.** Super Dope homies are great
+mates, just not as safe, and that's normal. Golden homies are the ones to
+nurture:
+- They're the whole low-battery list.
+- They sit next to the Safehouse and are listed as your safe people.
+- They come up most on the wheel.
+- You get a **"Nurture your Golden"** mission when it's been a week.
 
 ## ☢️ Toxic contact: did you need to, and how do you feel?
 
@@ -87,8 +97,8 @@ can handle today:
 
 | Battery | Who's in range |
 |---|---|
-| 🪫 Low | Your **low-battery list**. Golden and Super Dope people are on it by default, and you choose who else is on or off it |
-| 🔋 Medium | + Neutral homies |
+| 🪫 Low | Your **⭐ Golden homies**, your safest people. You can add anyone else to the low-battery list, or take someone off |
+| 🔋 Medium | + Super Dope and Neutral homies |
 | 🔋 High | + Watch This Fool |
 | ⚡ Peak | + Toxic homies |
 

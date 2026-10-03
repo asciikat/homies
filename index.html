@@ -513,12 +513,13 @@ const MISSION_TYPES = {
   call:    {label:'Call',            kinds:['call']},
   checkin: {label:'Check in with',   kinds:['saw', 'call', 'text', 'online']},
   hitup:   {label:'Hit up',          kinds:['saw', 'call', 'text', 'online']},
+  nurture: {label:'Nurture your Golden:', kinds:['saw', 'call', 'text', 'online']},
   noreply: {label:'Do not reply to', kinds:[]},
 };
 // Social battery: how much you can handle today. Each level adds who's in range.
 const BANDS = [
-  {key:'low',    label:'Low',    min:0,  check:25,  icon:'🪫', color:'#ff9b3d', handles:'Your low-battery list'},
-  {key:'medium', label:'Medium', min:35, check:50,  icon:'🔋', color:'#ffd166', handles:'+ Neutral homies'},
+  {key:'low',    label:'Low',    min:0,  check:25,  icon:'🪫', color:'#ff9b3d', handles:'Your Golden homies'},
+  {key:'medium', label:'Medium', min:35, check:50,  icon:'🔋', color:'#ffd166', handles:'+ Super Dope & neutral'},
   {key:'high',   label:'High',   min:60, check:75,  icon:'🔋', color:'#c6f26b', handles:'+ Watch This Fool'},
   {key:'peak',   label:'Peak',   min:85, check:100, icon:'⚡', color:'#7cf29a', handles:'+ Toxic, if you must'},
 ];
@@ -624,6 +625,9 @@ function analyze(h, now = Date.now()){
   const evs = h.log.filter(l => l.at <= now).slice().sort((a, b) => a.at - b.at);
   let act = .8 * decay(now - h.createdAt, HALF.act);
   let sw = 0, swv = 0, rad = 0, aura = 0, heat = 0, t = null, respect = 0, rated = 0;
+  // older hits count less than newer ones, measured from your latest rated hit (not from today),
+  // so status only moves when you rate something new; time passing never demotes a Golden homie
+  const lastRated = evs.filter(l => l.hit && !l.tox).pop(), ratedAt = lastRated ? lastRated.at : now;
   for (const l of evs){
     if (t !== null){ const dt = l.at - t; rad *= decay(dt, HALF.rad); aura *= decay(dt, HALF.aura); heat *= decay(dt, HALF.heat); }
     t = l.at;
@@ -632,7 +636,7 @@ function analyze(h, now = Date.now()){
     const H = l.hit && HITS[l.hit];
     if (H && l.tox){ heat = Math.max(0, heat + H.heat); continue; } // toxic contact: heat only, the cloud is worked out below
     if (H){
-      const w = decay(now - l.at, HALF.score);
+      const w = decay(ratedAt - l.at, HALF.score);
       sw += w; swv += w * H.v; rated++;
       rad = Math.max(0, rad + H.rad); aura = Math.max(0, aura + H.aura); heat = Math.max(0, heat + H.heat);
       respect += H.respect;
@@ -721,7 +725,7 @@ function battery(){
   return {level, checked, band: [...BANDS].reverse().find(b => level >= b.min)};
 }
 const bandOf = key => BANDS.find(b => b.key === key);
-const onLowList = h => h.lowBat === true || (h.lowBat !== false && ['golden', 'dope'].includes(A.get(h.id).status));
+const onLowList = h => h.lowBat === true || (h.lowBat !== false && A.get(h.id).status === 'golden'); // Golden by default: your safest people
 // Low: your low-battery list. Medium: + neutral. High: + watch this fool. Peak: + toxic.
 function canHandle(h, band = BAT.band.key){
   if (h.silent) return false;
@@ -1276,7 +1280,7 @@ function batteryCard(act = 'battery'){
   const b = BAT, out = data.homies.filter(h => !RANGE.has(h.id) && !h.silent).length;
   return `<button class="batt" style="--bc:${b.band.color}" data-act="${act}" aria-label="Social battery ${b.level}%, ${b.band.label}. Tap to change.">
     <span class="bv">${b.level}%</span><span class="bl">${b.band.icon} ${b.band.label} battery${b.checked ? '' : ' (guess)'}</span>
-    <span class="bh">${b.band.key === 'low' ? 'Just your low-battery list today.' : b.band.key === 'medium' ? 'Good and neutral people.' : b.band.key === 'high' ? 'Everyone except toxic.' : 'You can handle anyone today.'}${out ? ` ${out} out of range.` : ''}</span>${cells(Math.round(b.level / 10))}</button>`;
+    <span class="bh">${b.band.key === 'low' ? 'Just your Golden homies today.' : b.band.key === 'medium' ? 'Golden, Super Dope and neutral.' : b.band.key === 'high' ? 'Everyone except toxic.' : 'You can handle anyone today.'}${out ? ` ${out} out of range.` : ''}</span>${cells(Math.round(b.level / 10))}</button>`;
 }
 function lightCard(){
   const L = lightLevel(LIGHT.v), names = LIGHT.from.slice(0, 2);
@@ -1330,7 +1334,9 @@ function renderPulse(){
   if (focus){ const g = groups.find(x => x.key === focus.key); focus = g ? {key: g.key, ids: new Set(g.list.map(h => h.id))} : null; }
   const by = k => (groups.find(g => g.key === k) || {list: []}).list;
   const bits = [];
+  const needLove = by('golden').filter(h => { const l = A.get(h.id).last; return !l || Date.now() - l.at > 7 * DAY; });
   if (by('golden').length) bits.push(`Good energy is coming from ${nameList(by('golden'))}.`);
+  if (needLove.length) bits.push(`${nameList(needLove)} ${needLove.length === 1 ? 'is' : 'are'} Golden. Nurture that.`);
   else if (by('dope').length) bits.push(`Good times with ${nameList(by('dope'))}.`);
   if (by('heat').length) bits.push(`Heat is building around ${nameList(by('heat'))}.`);
   else if (by('toxic').length) bits.push(`Radiation around ${nameList(by('toxic'))}.`);
@@ -1379,6 +1385,7 @@ function ensureMissions(){
   const since = h => a(h).last ? Date.now() - a(h).last.at : Infinity;
   hs.filter(h => a(h).stars >= 3 || (a(h).status === 'toxic' && since(h) < 3 * DAY)).forEach(h => add('noreply', h));
   hs.filter(h => !layingLow(h) && h.toxic === null && (crewOf(h).name.toLowerCase().includes('parent') || PARENT_NAMES.test(first(h))) && since(h) > 10 * DAY).forEach(h => add('call', h));
+  hs.filter(h => !layingLow(h) && a(h).status === 'golden' && since(h) > 7 * DAY).sort((x, y) => since(y) - since(x)).forEach(h => add('nurture', h));
   hs.filter(h => !layingLow(h) && ['golden', 'dope'].includes(a(h).status) && since(h) > 14 * DAY).sort((x, y) => since(y) - since(x)).forEach(h => add('catchup', h));
   hs.filter(h => !layingLow(h) && a(h).status === 'neutral' && since(h) > 21 * DAY).sort((x, y) => since(y) - since(x)).forEach(h => add('checkin', h));
   data.missions.push(...out);
@@ -1434,16 +1441,16 @@ function renderSafehouse(){
   $('#main').hidden = on;
   $('#safehouse').hidden = !on;
   if (!on) return;
-  const safe = data.homies.filter(h => !h.silent && ['golden', 'dope'].includes(A.get(h.id).status))
-    .sort((a, b) => (A.get(b.id).status === 'golden') - (A.get(a.id).status === 'golden') || A.get(b.id).respect - A.get(a.id).respect).slice(0, 6);
-  const num = h => esc(h.phone.replace(/\s/g, ''));
+  const safe = data.homies.filter(h => !h.silent && A.get(h.id).status === 'golden').sort((a, b) => A.get(b.id).respect - A.get(a.id).respect).slice(0, 6);
+  const mates = data.homies.filter(h => !h.silent && A.get(h.id).status === 'dope').sort((a, b) => A.get(b.id).respect - A.get(a.id).respect).slice(0, 4);
+  const personRow = h => `<div class="s-person">${tok(h, 44)}<span class="w"><b>${esc(h.name)}</b><small>${STATUS[A.get(h.id).status].emoji} ${STATUS[A.get(h.id).status].label} · ${esc(lastSeen(h))}</small></span>${h.phone ? `<a class="btn small" href="sms:${esc(h.phone.replace(/\s/g, ''))}" aria-label="Text ${esc(h.name)}">💬</a><a class="btn small" href="tel:${esc(h.phone.replace(/\s/g, ''))}" aria-label="Call ${esc(h.name)}">📞</a>` : `<button class="btn small" data-act="copy" data-text="${esc(SAFE_MSG)}">Copy text</button>`}</div>`;
   $('#safehouse').innerHTML = `
     <div><p class="kicker">Safehouse</p><h1 class="safe-title" id="safe-h" tabindex="-1">Lay low.</h1></div>
     <section class="panel"><h3>Nothing here is urgent.</h3><p style="color:var(--smog)">No map, no missions, no heat. You don't have to reach out to anyone. If you'd like some company, these are your safe people.</p></section>
     <section class="panel">
-      <h2>Your safe people</h2>
-      ${safe.length ? safe.map(h => `<div class="s-person">${tok(h, 44)}<span class="w"><b>${esc(h.name)}</b><small>${STATUS[A.get(h.id).status].emoji} ${STATUS[A.get(h.id).status].label} · ${esc(lastSeen(h))}</small></span>${h.phone ? `<a class="btn small" href="sms:${num(h)}" aria-label="Text ${esc(h.name)}">💬</a><a class="btn small" href="tel:${num(h)}" aria-label="Call ${esc(h.name)}">📞</a>` : `<button class="btn small" data-act="copy" data-text="${esc(SAFE_MSG)}">Copy text</button>`}</div>`).join('')
-        : `<p class="fine">Nobody's showing as Golden or Super Dope yet. Your safe people show up here as you rate how things hit.</p>`}
+      <h2>Your safe people ⭐</h2>
+      ${safe.length ? safe.map(personRow).join('') : `<p class="fine">Nobody's Golden yet. Your safest people show up here as you rate how things hit.</p>`}
+      ${mates.length ? `<p class="kicker" style="margin-top:8px">🔥 Good mates</p><p class="fine">Great company, just not your safest on a hard day.</p>${mates.map(personRow).join('')}` : ''}
       <p class="kicker" style="margin-top:6px">A text that asks for nothing</p>
       <p class="quote">${esc(SAFE_MSG)}</p>
       <div><button class="btn small" data-act="copy" data-text="${esc(SAFE_MSG)}">Copy it</button></div>
@@ -1679,7 +1686,7 @@ function menuSheet(){
       <p class="kicker">How it reads</p>
       <p class="fine" style="color:var(--smog)">Closer to you means more active in your life right now. People drift out when you're not in touch, which isn't a bad thing. Status comes from how your recent time together hit: one bad hit puts someone on <b>Watch This Fool</b>, and good interactions can get them out again. A repeated pattern of bad hits makes them <b>Toxic</b>, and Toxic is for good. A gold aura is good energy, ☢️ radiation spreads from toxic and bad hits, and ★ stars are heat (how much headspace it's taking). Respect is positive history.</p>
       <p class="fine" style="color:var(--smog);margin-top:8px">✨ <b>Your light</b> grows around you from good times with golden and good homies (good homies glow like a warm fire), and fades if you go quiet. Every contact with a toxic homie asks if you needed to, and how you feel after. Their cloud only grows or holds, and starts to shrink after ${CALM_TO_SHRINK} calm contacts in a row.</p>
-      <p class="fine" style="color:var(--smog);margin-top:8px">🔋 <b>Social battery</b> decides who's in range today. Low: your low-battery list (good people by default). Medium: + neutral. High: + Watch This Fool. Peak: + Toxic. Good hits recharge you, bad ones drain you, and toxic contact drains an extra ${-TOXIC_DRAIN}%.</p>
+      <p class="fine" style="color:var(--smog);margin-top:8px">🔋 <b>Social battery</b> decides who's in range today. Low: your Golden homies (plus anyone you add). Medium: + neutral. High: + Watch This Fool. Peak: + Toxic. Good hits recharge you, bad ones drain you, and toxic contact drains an extra ${-TOXIC_DRAIN}%.</p>
     </div>
     <div class="sec">
       <div class="row" style="justify-content:space-between"><span>Sound</span><button class="btn small" data-act="sound">${prefs.sound ? '🔊 On' : '🔇 Off'}</button></div>
@@ -1713,12 +1720,12 @@ function batterySheet(keepScroll){
     </div>
     <div class="sec">
       <p class="kicker">Low-battery list</p>
-      <p class="fine" style="color:var(--smog)">On a Low battery, only these people are in range. Good people are on it by default. Tap to add or take anyone off.</p>
+      <p class="fine" style="color:var(--smog)">On a Low battery, only these people are in range. Your Golden homies are on it by default, because they're your safest. Tap to add or take anyone off.</p>
       <div class="chips">${people.map(h => `<button class="chip" style="--cc:${STATUS[A.get(h.id).status].hex}" data-act="lowbat-pick" data-id="${esc(h.id)}" aria-pressed="${onLowList(h)}"><span>${onLowList(h) ? '✓ ' : ''}</span>${esc(h.emoji)} ${esc(first(h))}</button>`).join('') || '<span class="fine">Add homies first.</span>'}</div>
     </div>
     <div class="sec">
       <p class="kicker">Who each battery can handle</p>
-      ${BANDS.map(b => `<p style="margin:0;display:flex;gap:10px"><b style="color:${b.color};min-width:6.5em;font-family:var(--font-hud);letter-spacing:.08em;text-transform:uppercase">${b.icon} ${b.label}</b><span style="color:var(--smog)">${b.key === 'low' ? 'Your low-battery list' : b.key === 'medium' ? '+ Neutral homies' : b.key === 'high' ? '+ Watch This Fool' : '+ Toxic homies'}</span></p>`).join('')}
+      ${BANDS.map(b => `<p style="margin:0;display:flex;gap:10px"><b style="color:${b.color};min-width:6.5em;font-family:var(--font-hud);letter-spacing:.08em;text-transform:uppercase">${b.icon} ${b.label}</b><span style="color:var(--smog)">${b.key === 'low' ? 'Your Golden homies (and anyone you add)' : b.key === 'medium' ? '+ Super Dope & neutral' : b.key === 'high' ? '+ Watch This Fool' : '+ Toxic homies'}</span></p>`).join('')}
     </div>`, 'Social battery');
   if (keepScroll) sh.scrollTop = top;
 }
@@ -1744,7 +1751,7 @@ function rest(){
 /* ---------- the lucky wheel (a button, not the main thing) ---------- */
 const Wheel = (() => {
   let cv, ctx, box, pointer, S = 0, dpr = 1, segs = [], rot = 0, flash = -1, spinning = false;
-  const weight = h => { const a = A.get(h.id), d = a.last ? Math.min(60, daysBetween(a.last.at, Date.now())) : 30; return (1 + d / 5) * ({golden: 2, dope: 1.6}[a.status] || 1); };
+  const weight = h => { const a = A.get(h.id), d = a.last ? Math.min(60, daysBetween(a.last.at, Date.now())) : 30; return (1 + d / 5) * ({golden: 3, dope: 1.3}[a.status] || 1); };
   const eligible = () => data.homies.filter(h => !away(h) && RANGE.has(h.id) && !['watch', 'toxic'].includes(A.get(h.id).status));
   function mount(){
     box = $('#wheel-box'); cv = $('#wheel'); if (!cv) return;
