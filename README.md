@@ -1,65 +1,75 @@
 # Homies
 
-**Keep your crew close.** A GTA-style radar of your people, built on the ideas from
-Friend Orbit, in the same night-city look as
-[Mission Possible](https://github.com/asciikat/Mission-Possible). Later it becomes a
-tab in Mission Possible (see [INTEGRATION.md](INTEGRATION.md)).
+**Hit up your people, stack cash, protect your battery.** A phone-first game for
+keeping in touch, in the same GTA night-city style as
+[Mission Possible](https://github.com/asciikat/Mission-Possible).
 
-Single page: `index.html`. No build step and no account needed.
+Single page: `index.html`. No build step, no account.
 
 ## How it plays
 
-- **Radar.** Everyone you add is a blip on a GTA-style minimap of a little city.
-  The closer a blip is to your arrow in the middle, the more in touch you are. The
-  rings are zones: **Crew** (tight lately), **The Block** (all good),
-  **Across Town** (could use a wave) and **Off the Map** (still on your radar).
-  Blips drift outwards over time, depending on how often you want to check in with
-  each person. Tap a blip to open their dossier.
-- **Contact mission.** One homie a day, picked from the people who've drifted
-  furthest. Pick a move (thought of them, meme, text, voice memo, game, call,
-  link up IRL, or "they hit me up") and you've passed. **Someone else** rerolls,
-  and skipping is always fine.
-- **Fuel.** Set your fuel for the day (Fumes, Low, Cruising, Full tank) and the
-  mission only offers moves that fit. On Fumes, just thinking of someone counts.
-- **Respect.** Every move earns respect, and you rank up from *Lone Wolf* to
-  *Godfather of the Group Chat*. Big moves (calls, games, link-ups) and rank-ups
-  get a full-screen **Mission passed** stamp. Respect only goes up: deleting
-  someone doesn't take it away.
-- **Phone.** Your contact list, grouped by zone. The ✦ button logs "thought of
-  them" in one tap; **+** opens the other moves. Add one person, or paste a whole
-  list.
-- **Dossier.** Tap anyone to open their file: pronouns, how you know them,
-  **Intel** (things to remember), **Ask about** (what's going on for them),
-  birthday, check-in rhythm, crew, how they like to keep in touch, blip colour and
-  their history. **What do I say?** offers ready-made messages to copy.
-- **Safehouse.** For hard days. The house button hides everything except the
-  people you've marked as safehouse homies, a message that asks for nothing, and
-  crisis lines. Opening `…/homies/#safehouse` goes straight there.
-- **Laying low.** Take someone off the radar for a while without deleting them.
+**Every homie rolls with a crew.** You start with 🫂 Day Ones, 🏠 Family,
+💼 Work and 🎮 Gaming, and you can start your own (name, emblem, colours).
+Pick a crew, type names (commas for a few at once), done.
 
-Keys on desktop: `N` add, `/` search, `Esc` close.
+**Hit someone up, get paid.** Tap 💸 *I hit someone up* (or anyone on the Crews
+screen), pick how, and collect:
 
-## Bringing your Friend Orbit people over
+| Move | Payout |
+|---|---|
+| 💬 Social / DM | $10 Bronze |
+| 📱 Text | $25 Silver |
+| 📞 Phone call | $75 Gold |
+| 🤝 In person | $250 **EPIC** |
 
-In Friend Orbit tap **Back up**, then in Homies tap **Restore** on the phone and
-pick that file. Homies uses the same people format, so everyone comes across
-with their notes, birthdays and history.
+Every contact ends in a full-screen **Mission Passed**. In person gets the
+works: rainbow stamp, cash rain, crowd noise and a screen shake.
+
+**Lucky Wheel.** One spin a day picks today's ×2: every payout with them is
+doubled. There's one re-spin if it lands on someone you can't reach today.
+People you haven't reached lately come up more often.
+
+**Vibes.** Open anyone's ⋯ and set their vibe:
+- 💚 **Nurturing**: pays ×1.5, *recharges* your battery and clears radiation. Rad vibes.
+- 😐 **Neutral**: normal payout, uses a bit of battery.
+- ☢️ **Toxic**: pays nothing, drains your battery double and gives off
+  **radiation**. Each contact with them gets an exposure warning, with
+  boundary lines you can copy. Toxic homies never go on the wheel.
+
+**Social battery.** Check in each day (Empty, Low, Okay, Full). Contacts use
+battery, nurturing homies give it back, and 🛌 a breather adds 15% (once an hour).
+When it's low, only nurturing homies go on the wheel.
+
+**Radiation.** Builds up with toxic contact (8 to 50 rads per contact) and halves
+every 2 days. Elevated at 20, high at 50 and critical at 90, when the app
+suggests the safehouse. Nurturing contacts clear it faster.
+
+**🏠 Safehouse.** The house button (or `…/homies/#safehouse`) hides the game.
+What's left: your battery, a breather button, your nurturing people with a
+no-pressure text to copy, and crisis lines (Lifeline 13 11 14, Beyond Blue,
+988, Samaritans).
+
+**Weekly heist.** Reach 3 different homies in a week for the $100 crew job, or 6
+for the $250 big heist. Toxic contacts don't count.
+
+**Rep.** Total cash and rank (Lone Wolf up to Godfather of the Group Chat),
+crew standings for the week, a vibe report with your toxic exposure over the
+last 30 days, 12 trophies, recent moves, sound, and backup/restore.
 
 ## Where your data lives
 
-Your homies are saved in this browser (`localStorage`, key `homies.v1`). Use
-**Back up** now and then; **Restore** merges a backup back in (newest edit wins).
-Sound and fuel are kept per device.
+Everything is saved in this browser (`localStorage`, key `homies.v3`). Use
+**Back up** on the Rep screen now and then. **Restore** merges a backup back in,
+and also takes Friend Orbit backups: circles become crews, and safe people
+become nurturing. Earlier versions of Homies move across by themselves.
 
-Homies and Mission Possible both live on `asciikat.github.io`, so they share the
-same browser storage. Homies only uses keys that start with `homies.`, so the two
-never touch each other's data.
+Homies and Mission Possible both live on `asciikat.github.io` and share browser
+storage. Homies only uses keys starting with `homies.`.
 
 ## Host free on GitHub Pages
-1. Repo **Settings → Pages → Deploy from a branch → `main` / root → Save**.
-2. Open `https://asciikat.github.io/homies/`.
+Repo **Settings → Pages → Deploy from a branch → `main` / root**, then open
+`https://asciikat.github.io/homies/`.
 
 ## Install as an app
-Open the site in Chrome or Edge and use **Install** from the address bar or menu;
-on iPhone use Safari **Share → Add to Home Screen**. It opens full-screen with its
-own icon and works offline.
+Chrome/Edge: **Install** from the address bar or menu. iPhone: Safari
+**Share → Add to Home Screen**. Opens full-screen and works offline.

@@ -1,7 +1,7 @@
 {
   "name": "Homies",
   "short_name": "Homies",
-  "description": "Keep your crew close: a GTA-style radar of your people.",
+  "description": "Hit up your crew, stack cash, protect your battery.",
   "id": "./",
   "start_url": "./",
   "scope": "./",
