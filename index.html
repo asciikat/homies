@@ -119,6 +119,20 @@ a { color: var(--palm); }
 .kt b { font: 800 15px/1 var(--font-hud); letter-spacing: .04em; text-transform: uppercase; }
 .kt .kl { display: flex; align-items: center; gap: 3px; font: 700 11.5px/1.1 var(--font-hud); color: var(--smog); }
 .kt[aria-checked="true"] { border-color: var(--gold); background: rgba(255, 209, 102, .14); box-shadow: 0 0 0 3px rgba(255, 209, 102, .15); }
+.need-opts { display: grid; gap: 10px; }
+.need { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 12px; align-items: center; min-height: 76px; padding: 10px 14px; border-radius: 16px; border: 2px solid var(--line-2); background: rgba(255, 255, 255, .04); text-align: left; }
+.need span:first-child { font-size: 34px; text-align: center; }
+.need b { display: block; font: 900 22px/1 var(--font-display); text-transform: uppercase; }
+.need small { color: var(--smog); font-size: 14px; }
+.need.chose { border-color: rgba(255, 212, 0, .5); }
+.feels { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.streak { display: flex; gap: 4px; margin-top: 6px; }
+.streak i { flex: 1; height: 10px; border-radius: 3px; background: rgba(255, 255, 255, .1); }
+.streak i.on { background: var(--palm); box-shadow: 0 0 6px rgba(46, 230, 200, .6); }
+.light { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 12px; align-items: center; padding: 10px 12px; border-radius: 14px; background: radial-gradient(120% 140% at 0% 50%, rgba(255, 209, 102, calc(.08 + var(--lv) * .22)), rgba(0, 0, 0, .25) 70%); border: 1px solid rgba(255, 209, 102, calc(.15 + var(--lv) * .5)); }
+.light .le { grid-row: span 2; font-size: 30px; filter: drop-shadow(0 0 calc(var(--lv) * 14px) rgba(255, 209, 102, .9)); }
+.light b { font: 800 14px/1.1 var(--font-hud); letter-spacing: .1em; text-transform: uppercase; color: var(--gold); }
+.light span { font-size: 14px; color: var(--smog); line-height: 1.3; }
 .qa .deal { border-color: var(--s-toxic); background: rgba(182, 255, 60, .08); }
 .hitb small { font: 700 11.5px/1 var(--font-hud); letter-spacing: .02em; color: var(--smog); }
 .in-safehouse .icon-btn.house { background: var(--palm); }
@@ -485,6 +499,14 @@ const BOUNDARIES = [
   "I'm going to leave this conversation here.",
   "Please don't contact me for a while.",
 ];
+// Contact with a toxic homie always asks two things: did you need to, and how do you feel now.
+const NEEDS = {
+  had:   {emoji:'😮‍💨', label:'Yes, I had to',     sub:'Work, family, kids, admin. It happens.'},
+  they:  {emoji:'📥', label:'They contacted me', sub:'You answered something they started.'},
+  chose: {emoji:'🙋', label:'No, I chose to',    sub:'Honest answer. That counts too.'},
+};
+const FEELS = [['good', '😌', 'Okay'], ['meh', '😐', 'Neutral'], ['off', '⚠️', 'Uneasy'], ['bad', '☢️', 'Worse']];
+const CALM_TO_SHRINK = 10;               // calm contacts in a row before a toxic cloud can start to shrink
 const SAFE_MSG = "Rough day over here. No need to reply, I just wanted to say hi to someone I like.";
 const MISSION_TYPES = {
   catchup: {label:'Catch up with',   kinds:['saw', 'call']},
@@ -520,6 +542,8 @@ let pendingReceipts = new Set();
 let BAT = {level: 70, checked: false, band: BANDS[2]}; // today's social battery, refreshed every render
 let RANGE = new Set();      // who you can handle on today's battery
 let STASH = {jars: [[]], full: 0, counts: {}, total: 0, week: 0}; // packed every render
+let LIGHT = {v: 0, from: []};  // your golden light, from good times with golden and good homies
+let HABITS = {toxic: 0, chose: 0, people: 0, quietDays: 0}; // the last 7 days, for isolation and toxic checks
 
 /* ---------- model ---------- */
 function normCrew(r){
@@ -534,7 +558,7 @@ function normHomie(r){
   if (!name) return null;
   const id = okId(r.id) ? r.id : uid('h');
   const log = (Array.isArray(r.log) ? r.log : []).filter(l => l && (KINDS[l.kind] || l.kind === 'bail') && Number.isFinite(l.at)).slice(0, 800)
-    .map(l => ({id: okId(l.id) ? l.id : uid('l'), at: l.at, kind: l.kind, hit: HITS[l.hit] ? l.hit : null, tox: !!l.tox}))
+    .map(l => ({id: okId(l.id) ? l.id : uid('l'), at: l.at, kind: l.kind, hit: HITS[l.hit] ? l.hit : null, tox: !!l.tox, need: NEEDS[l.need] ? l.need : null}))
     .sort((a, b) => b.at - a.at);
   const receipts = (Array.isArray(r.receipts) ? r.receipts : []).filter(x => x && typeof x.text === 'string' && x.text.trim() && Number.isFinite(x.at)).slice(0, 200)
     .map(x => ({id: okId(x.id) ? x.id : uid('r'), at: x.at, text: str(x.text, 80), tone: x.tone > 0 ? 1 : x.tone < 0 ? -1 : 0}))
@@ -606,6 +630,7 @@ function analyze(h, now = Date.now()){
     if (KINDS[l.kind]) act += KINDS[l.kind].w * decay(now - l.at, HALF.act);
     if (l.kind === 'bail'){ rad += .3; heat += 1; }
     const H = l.hit && HITS[l.hit];
+    if (H && l.tox){ heat = Math.max(0, heat + H.heat); continue; } // toxic contact: heat only, the cloud is worked out below
     if (H){
       const w = decay(now - l.at, HALF.score);
       sw += w; swv += w * H.v; rated++;
@@ -628,9 +653,20 @@ function analyze(h, now = Date.now()){
     : lerp(1.1, .80, act / .3);
   const lastC = h.log.find(l => KINDS[l.kind]) || null;
   const stars = HEAT_STEPS.filter(x => heat >= x).length;
-  const radVis = Math.max(rad, status === 'toxic' ? 1.5 : status === 'watch' ? .45 : 0);
-  const auraVis = status === 'golden' ? Math.max(aura, 1.2) : status === 'dope' ? Math.min(Math.max(aura, .35), .7) : 0;
-  return {act, zone, rfrac, score, status, toToxic, risk, rad, radVis, aura, auraVis, heat, stars, respect, rated, last: lastC,
+  // A toxic cloud never fades by itself. Uneasy or worse makes it grow; okay or neutral holds it and
+  // builds a calm streak; only from the 10th calm contact in a row does it start, slowly, to shrink.
+  let cloud = 0, calm = 0;
+  if (status === 'toxic'){
+    cloud = 1.5;
+    for (const l of evs) if (l.tox && l.hit){
+      if (l.hit === 'bad'){ cloud += 1; calm = 0; }
+      else if (l.hit === 'off'){ cloud += .5; calm = 0; }
+      else { calm++; if (calm >= CALM_TO_SHRINK) cloud = Math.max(.8, cloud - .2); }
+    }
+  }
+  const radVis = status === 'toxic' ? cloud : Math.max(rad, status === 'watch' ? .45 : 0);
+  const auraVis = status === 'golden' ? Math.max(aura, 1.2) : status === 'dope' ? Math.min(Math.max(aura, .6), 1.2) : 0;
+  return {act, zone, rfrac, score, status, toToxic, risk, cloud, calm, rad, radVis, aura, auraVis, heat, stars, respect, rated, last: lastC,
     drifting: !!lastC && now - lastC.at > 21 * DAY && (zone === 'streets' || zone === 'outta') && !away(h)};
 }
 function trendOf(h){
@@ -735,7 +771,21 @@ function refresh(){
   BAT = battery();
   RANGE = new Set(data.homies.filter(h => canHandle(h)).map(h => h.id));
   STASH = packStash();
+  const now = Date.now(), from = new Map();
+  let v = 0, lastPeople = 0;
+  HABITS = {toxic: 0, chose: 0, people: 0, quietDays: 0};
+  for (const h of data.homies) for (const l of h.log){
+    if (!KINDS[l.kind]) continue;
+    if (l.tox){ if (now - l.at < 7 * DAY){ HABITS.toxic++; if (l.need === 'chose') HABITS.chose++; } continue; }
+    lastPeople = Math.max(lastPeople, l.at);
+    if (now - l.at < 7 * DAY) HABITS.people++;
+    const w = l.hit === 'golden' ? 1 : l.hit === 'good' ? .5 : 0;
+    if (w){ const x = w * decay(now - l.at, 7); v += x; from.set(h, (from.get(h) || 0) + x); }
+  }
+  HABITS.quietDays = lastPeople ? daysBetween(lastPeople, now) : Infinity;
+  LIGHT = {v, from: [...from.entries()].sort((a, b) => b[1] - a[1]).map(([h]) => h)};
 }
+const lightLevel = v => v >= 6 ? {label: 'Radiant', lv: 1} : v >= 3 ? {label: 'Bright', lv: .7} : v >= 1 ? {label: 'Glowing', lv: .4} : v > .15 ? {label: 'Dim', lv: .15} : {label: 'Out', lv: 0};
 
 /* ---------- storage ---------- */
 function load(){
@@ -995,21 +1045,30 @@ const Hood = (() => {
     }
     const list = [...nodes.values()];
     const dimmed = n => focus && !focus.ids.has(n.h.id);
-    // golden aura
     ctx.globalCompositeOperation = 'lighter';
+    // your golden light: it grows with good times with your people and fades when you go quiet
+    if (LIGHT.v > .15){
+      const lr = (.1 + .06 * Math.min(LIGHT.v, 7)) * Rr * (anim ? 1 + .05 * Math.sin(t * 1.2) : 1);
+      const g = ctx.createRadialGradient(c, c, m * .5, c, c, lr);
+      g.addColorStop(0, `rgba(255,224,140,${Math.min(.65, .2 + LIGHT.v * .07)})`); g.addColorStop(.6, `rgba(255,209,102,${Math.min(.3, .08 + LIGHT.v * .03)})`); g.addColorStop(1, 'rgba(255,209,102,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(c, c, lr, 0, TAU); ctx.fill();
+    }
+    // golden homies glow gold; super dope ones have a warm, flickering fire glow
     for (const n of list){
       const an = A.get(n.h.id); if (!an || !an.auraVis || n.h.silent) continue;
-      const rr = (.07 + .055 * Math.min(an.auraVis, 3)) * Rr * (anim ? 1 + .06 * Math.sin(t * 1.6 + n.x) : 1);
-      const g = ctx.createRadialGradient(n.x, n.y, m * .6, n.x, n.y, rr);
-      const s = an.status === 'golden' ? .5 : .22;
-      g.addColorStop(0, `rgba(255,209,102,${s * (dimmed(n) ? .3 : 1)})`); g.addColorStop(1, 'rgba(255,209,102,0)');
+      const fire = an.status === 'dope';
+      const flick = anim ? (fire ? 1 + .07 * Math.sin(t * 9 + n.x) + .05 * Math.sin(t * 15.3 + n.y) : 1 + .06 * Math.sin(t * 1.6 + n.x)) : 1;
+      const rr = (.07 + .055 * Math.min(an.auraVis, 3)) * Rr * flick;
+      const g = ctx.createRadialGradient(n.x, n.y, m * .6, n.x, n.y, rr), f = dimmed(n) ? .3 : 1;
+      if (fire){ g.addColorStop(0, `rgba(255,150,60,${.42 * f})`); g.addColorStop(.5, `rgba(255,90,30,${.18 * f})`); g.addColorStop(1, 'rgba(255,60,20,0)'); }
+      else { g.addColorStop(0, `rgba(255,209,102,${.5 * f})`); g.addColorStop(1, 'rgba(255,209,102,0)'); }
       ctx.fillStyle = g; ctx.beginPath(); ctx.arc(n.x, n.y, rr, 0, TAU); ctx.fill();
     }
     ctx.globalCompositeOperation = 'source-over';
     // radiation
     for (const n of list){
       const an = A.get(n.h.id); if (!an || an.radVis < .25) continue;
-      const strong = an.radVis >= 1.2, rr = (.045 + .07 * Math.min(an.radVis, 4.5)) * Rr * (anim ? 1 + .04 * Math.sin(t * 2.4 + n.y) : 1);
+      const strong = an.radVis >= 1.2, rr = (.045 + .07 * Math.min(an.radVis, 6)) * Rr * (anim ? 1 + .04 * Math.sin(t * 2.4 + n.y) : 1);
       const col = strong ? '182,255,60' : '255,212,0', fade = dimmed(n) ? .3 : 1;
       const g = ctx.createRadialGradient(n.x, n.y, m * .5, n.x, n.y, rr);
       g.addColorStop(0, `rgba(${col},${(strong ? .42 : .25) * fade})`); g.addColorStop(.75, `rgba(${col},${(strong ? .16 : .08) * fade})`); g.addColorStop(1, `rgba(${col},0)`);
@@ -1128,7 +1187,7 @@ const Hood = (() => {
     if (!S) return out;
     for (const n of nodes.values()){
       const an = A.get(n.h.id); if (!an || an.radVis < 1.2 || n.h.silent) continue;
-      const rr = (.045 + .07 * Math.min(an.radVis, 4.5)) * Rr;
+      const rr = (.045 + .07 * Math.min(an.radVis, 6)) * Rr;
       if (Math.hypot(n.tx - c, n.ty - c) - rr < mr() * 1.5) out.push(n.h);
     }
     return out;
@@ -1219,6 +1278,10 @@ function batteryCard(act = 'battery'){
     <span class="bv">${b.level}%</span><span class="bl">${b.band.icon} ${b.band.label} battery${b.checked ? '' : ' (guess)'}</span>
     <span class="bh">${b.band.key === 'low' ? 'Just your low-battery list today.' : b.band.key === 'medium' ? 'Good and neutral people.' : b.band.key === 'high' ? 'Everyone except toxic.' : 'You can handle anyone today.'}${out ? ` ${out} out of range.` : ''}</span>${cells(Math.round(b.level / 10))}</button>`;
 }
+function lightCard(){
+  const L = lightLevel(LIGHT.v), names = LIGHT.from.slice(0, 2);
+  return `<div class="light" style="--lv:${L.lv}"><span class="le" aria-hidden="true">✨</span><b>Your light: ${L.label}</b><span>${names.length ? `Coming from ${nameList(names)}.` : 'Good times with golden and good homies make it grow.'}</span></div>`;
+}
 function checkinHTML(){
   return `<div class="checkin"><p class="kicker">How's your social battery?</p><div class="checkin-btns" role="group" aria-label="Social battery">${BANDS.map(b => `<button class="ci" style="--bc:${b.color}" data-act="checkin" data-v="${b.check}" aria-pressed="${BAT.checked && BAT.band.key === b.key}"><span>${b.icon}</span>${b.label}<small>${b.handles}</small></button>`).join('')}</div></div>`;
 }
@@ -1275,6 +1338,7 @@ function renderPulse(){
   if (by('drift').length) bits.push(`${nameList(by('drift'))} ${by('drift').length === 1 ? 'is' : 'are'} drifting.`);
   el.innerHTML = `<h2>Hood pulse <span>${data.homies.length} ${data.homies.length === 1 ? 'homie' : 'homies'}</span></h2>
     ${BAT.checked ? batteryCard() : checkinHTML()}
+    ${lightCard()}
     ${groups.length ? `<div class="pulse-row" role="group" aria-label="Show these on the map">${groups.map(g => `<button class="ptile" style="--pc:${g.color}" data-act="focus" data-v="${g.key}" aria-pressed="${!!(focus && focus.key === g.key)}"><b><span>${g.icon}</span>${g.list.length}</b><small>${g.label}</small></button>`).join('')}</div>` : ''}
     <p class="pulse-say">${bits.join(' ') || 'All quiet in the Hood. No strong patterns yet.'}${focus ? ` <button class="link" data-act="focus" data-v="">Show everyone</button>` : ''}</p>`;
 }
@@ -1287,6 +1351,10 @@ function renderAlert(){
   } else if (reaching.length){
     const h = reaching[0];
     el.innerHTML = `<div class="alert"><p><b>☢️ The radiation around ${esc(first(h))} is reaching you.</b> You don't have to engage. Step back, lay low, or bail.</p><div class="row"><button class="btn haz small" data-act="bail" data-id="${esc(h.id)}">🚨 Bail</button><button class="btn small" data-act="laylow" data-id="${esc(h.id)}">🌙 Lay low</button></div></div>`;
+  } else if (HABITS.toxic >= 2 && HABITS.toxic >= HABITS.people){
+    el.innerHTML = `<div class="alert"><p><b>☢️ This week you've had more contact with toxic people (${HABITS.toxic}) than with your people (${HABITS.people}).</b>${HABITS.chose ? ` ${HABITS.chose} of those ${HABITS.chose === 1 ? 'was' : 'were'} by choice.` : ''} Did you absolutely need to? Your safe people are right here.</p><div class="row"><button class="btn palm small" data-act="safehouse">🏠 Safe people</button><button class="btn small" data-act="reach-safe">✨ Hit up a golden homie</button></div></div>`;
+  } else if (HABITS.quietDays >= 5 && data.homies.some(x => !x.toxic && !x.silent)){
+    el.innerHTML = `<div class="alert" style="border:2px solid rgba(154,107,255,.5);background:rgba(154,107,255,.1)"><p><b style="color:var(--dusk)">🌑 You've gone quiet.</b> ${HABITS.quietDays === Infinity ? "You haven't logged time with your people yet." : `No time with your people in ${HABITS.quietDays} days.`} Your light is fading. That's okay. One small hello to a golden or good homie counts.</p><div class="row"><button class="btn gold small" data-act="reach-safe">✨ Hit up someone good</button></div></div>`;
   } else if (hot.length){
     const h = hot[0];
     el.innerHTML = `<div class="alert"><p><b>${'★'.repeat(A.get(h.id).stars)} ${esc(first(h))} is taking up a lot of headspace.</b> That's heat, not a verdict. You can step away for a bit.</p><div class="row"><button class="btn haz small" data-act="bail" data-id="${esc(h.id)}">🚨 Bail</button><button class="btn small" data-act="laylow" data-id="${esc(h.id)}">🌙 Lay low</button></div></div>`;
@@ -1437,7 +1505,10 @@ function homieSheet(id){
   openSheet(`
     <div class="sh-head">${tok(h, 64)}<div class="grow"><h2>${esc(h.name)}</h2><div class="row" style="gap:6px">${stChip(h)}${crewTag(crewOf(h))}</div></div>${xBtn}</div>
     <p class="pattern" style="--sc:${s.color}">${patternLine(h)}${trend && !h.toxic ? `<span class="trend">${trend}</span>` : ''}</p>
-    ${h.toxic ? `<div class="toxic-banner"><b>☢️ Toxic. That's done.</b> ${esc(first(h))} stays in the Hood and keeps spreading radiation. Contact drains your battery an extra ${-TOXIC_DRAIN}%. Only a Peak battery can handle them.</div>`
+    ${h.toxic ? `<div class="toxic-banner"><b>☢️ Toxic. That's done.</b> ${esc(first(h))} stays in the Hood and keeps spreading radiation. Contact drains your battery an extra ${-TOXIC_DRAIN}%. Only a Peak battery can handle them.
+        <p style="margin:10px 0 0"><b>Cloud size ${a.cloud.toFixed(1)}</b> · Calm streak ${Math.min(a.calm, CALM_TO_SHRINK)}/${CALM_TO_SHRINK}${a.calm >= CALM_TO_SHRINK ? ' · shrinking slowly' : ''}</p>
+        <div class="streak" aria-hidden="true">${Array.from({length: CALM_TO_SHRINK}, (_, i) => `<i${i < a.calm ? ' class="on"' : ''}></i>`).join('')}</div>
+        <p class="fine" style="margin-top:6px;color:var(--smog)">The cloud never fades on its own. Uneasy or worse makes it grow. After ${CALM_TO_SHRINK} okay or neutral contacts in a row it starts to shrink.${(() => { const w = h.log.filter(l => l.tox && Date.now() - l.at < 7 * DAY); const c = w.filter(l => l.need === 'chose').length; return w.length ? ` This week: ${w.length} ${w.length === 1 ? 'contact' : 'contacts'}${c ? `, ${c} by choice` : ''}.` : ''; })()}</p></div>`
       : a.status === 'watch' ? `<div class="risk"><div class="risk-top"><span>☢️ Toxic risk</span><span>${Math.round(a.risk * 100)}%</span></div><div class="risk-bar"><i style="width:${Math.max(4, Math.round(a.risk * 100))}%"></i></div><p>${a.toToxic === 1 ? '<b>One more bad hit</b> and they go Toxic for good.' : `<b>${a.toToxic} more bad hits</b> and they go Toxic for good.`} Good interactions bring the risk down and can get them out of Watch This Fool.</p></div>`
       : a.toToxic && a.toToxic <= 2 ? `<div class="risk"><div class="risk-top"><span>☢️ Toxic risk</span><span>Close</span></div><p><b>${a.toToxic} bad ${a.toToxic === 1 ? 'hit' : 'hits'}</b> away from Toxic for good.</p></div>` : ''}
     <div class="range"><span>${RANGE.has(h.id) ? `✅ In range on your ${BAT.band.label} battery` : h.silent ? '🔇 Radio silence' : `🪫 Too much for a ${BAT.band.label} battery`}</span><button class="chip" data-act="lowbat" data-id="${esc(h.id)}" aria-pressed="${onLowList(h)}" title="On a low battery, only people on this list are in range">${onLowList(h) ? '✓ ' : '＋ '}Low-battery list</button></div>
@@ -1478,6 +1549,26 @@ function boundarySheet(id){
     <p style="margin:0 0 12px;color:var(--smog)">You don't owe ${esc(first(h))} a reply. Not replying is a move too. If you do reply, keep it short:</p>
     <div style="display:grid;gap:8px">${BOUNDARIES.map(b => `<div class="bubble" style="display:flex;gap:8px;align-items:flex-start;padding:12px 10px 12px 14px;border-radius:18px 18px 18px 4px;background:rgba(182,255,60,.08);border:1px solid rgba(182,255,60,.3)"><p style="margin:0;flex:1">${esc(b)}</p><button class="btn small" data-act="copy" data-text="${esc(b)}">Copy</button></div>`).join('')}</div>
     <div class="row" style="margin-top:14px"><button class="btn small" data-act="noreply-mission" data-id="${esc(h.id)}">🛡️ Mission: don't reply tonight</button><button class="btn haz small" data-act="bail" data-id="${esc(h.id)}">🚨 Bail</button></div>`, `Boundary lines for ${h.name}`);
+}
+function needSheet(id){
+  const h = byId(id); if (!h) return;
+  openSheet(`
+    <div class="sh-head">${tok(h, 54)}<div class="grow"><p class="kicker">☢️ ${esc(h.name)}</p><h2>Did you absolutely need to contact them?</h2></div>${xBtn}</div>
+    <div class="need-opts">${Object.entries(NEEDS).map(([k, N]) => `<button class="need ${k}" data-act="need" data-id="${esc(h.id)}" data-v="${k}"${k === 'had' ? ' data-autofocus' : ''}><span>${N.emoji}</span><span><b>${N.label}</b><small>${N.sub}</small></span></button>`).join('')}</div>
+    <p class="fine" style="margin-top:12px">No judgement either way. It just helps you see the pattern.</p>`, `Did you need to contact ${h.name}?`);
+}
+function feelSheet(id, need){
+  const h = byId(id); if (!h) return;
+  const a = A.get(h.id);
+  pendingReceipts = new Set();
+  openSheet(`
+    <div class="sh-head">${tok(h, 48)}<div class="grow"><p class="kicker">☢️ After ${esc(first(h))}</p><h2>How do you feel now?</h2></div>${xBtn}</div>
+    ${need === 'chose' ? `<p class="fine" style="margin:0 0 12px;color:var(--smog)">You chose this one. That's okay. Noticing it is how it changes.</p>` : ''}
+    <div class="kind-tiles" role="radiogroup" aria-label="How it happened">${LOOT_ORDER.map(k => `<button class="kt" role="radio" aria-checked="${k === 'text'}" data-act="kind" data-v="${k}"><span class="ke">${KINDS[k].emoji}</span><b>${KINDS[k].label}</b><span class="kl">🔋${HIT_BAT.meh + TOXIC_DRAIN}% or more</span></button>`).join('')}</div>
+    <div class="feels">${FEELS.map(([k, e, l]) => `<button class="hitb" style="--hc:${HITS[k].color}" data-act="feel" data-id="${esc(h.id)}" data-v="${k}" data-need="${need}"${k === 'meh' ? ' data-autofocus' : ''}><span>${e}</span>${l}<small>${k === 'off' || k === 'bad' ? 'cloud grows' : 'calm +1'}</small></button>`).join('')}</div>
+    <p class="fine" style="margin-top:10px">Calm streak ${Math.min(a.calm, CALM_TO_SHRINK)}/${CALM_TO_SHRINK}. Okay or neutral keeps it going. Uneasy or worse resets it and grows the cloud.</p>
+    <div class="sec" style="margin-top:10px"><p class="kicker">Add a receipt? (optional)</p><div class="chips">${RECEIPTS.bad.map(r => `<button class="chip" data-act="pre-receipt" data-v="${esc(r)}" aria-pressed="false">${esc(r)}</button>`).join('')}</div></div>`, `How do you feel after ${h.name}?`);
+  $('#sheet').dataset.kind = 'text';
 }
 function hitUpSheet(id){
   const h = byId(id); if (!h) return;
@@ -1587,6 +1678,7 @@ function menuSheet(){
     <div class="sec">
       <p class="kicker">How it reads</p>
       <p class="fine" style="color:var(--smog)">Closer to you means more active in your life right now. People drift out when you're not in touch, which isn't a bad thing. Status comes from how your recent time together hit: one bad hit puts someone on <b>Watch This Fool</b>, and good interactions can get them out again. A repeated pattern of bad hits makes them <b>Toxic</b>, and Toxic is for good. A gold aura is good energy, ☢️ radiation spreads from toxic and bad hits, and ★ stars are heat (how much headspace it's taking). Respect is positive history.</p>
+      <p class="fine" style="color:var(--smog);margin-top:8px">✨ <b>Your light</b> grows around you from good times with golden and good homies (good homies glow like a warm fire), and fades if you go quiet. Every contact with a toxic homie asks if you needed to, and how you feel after. Their cloud only grows or holds, and starts to shrink after ${CALM_TO_SHRINK} calm contacts in a row.</p>
       <p class="fine" style="color:var(--smog);margin-top:8px">🔋 <b>Social battery</b> decides who's in range today. Low: your low-battery list (good people by default). Medium: + neutral. High: + Watch This Fool. Peak: + Toxic. Good hits recharge you, bad ones drain you, and toxic contact drains an extra ${-TOXIC_DRAIN}%.</p>
     </div>
     <div class="sec">
@@ -1739,10 +1831,10 @@ function doSpin(){
 }
 
 /* ---------- the big moments ---------- */
-function logInteraction(id, kind, hit){
+function logInteraction(id, kind, hit, {need = null} = {}){
   const h = byId(id); if (!h || !KINDS[kind]) return;
   const before = A.get(h.id), respBefore = playerRespect(), batBefore = BAT, jarsBefore = STASH.full;
-  const entry = {id: uid('l'), at: Date.now(), kind, hit: hit || null, tox: !!h.toxic};
+  const entry = {id: uid('l'), at: Date.now(), kind, hit: hit || null, tox: !!h.toxic, need: NEEDS[need] ? need : null};
   h.log.unshift(entry);
   const receipts = [...pendingReceipts].map(text => ({id: uid('r'), at: Date.now(), text, tone: RECEIPTS.good.includes(text) ? 1 : RECEIPTS.bad.includes(text) ? -1 : 0}));
   h.receipts.unshift(...receipts);
@@ -1763,6 +1855,7 @@ function logInteraction(id, kind, hit){
   if (isLoot(entry)) setTimeout(() => popup(`+1 ${LOOT[kind].label}`, LOOT[kind].fill), 950);
   if (BAT.band.key !== batBefore.band.key && BAT.checked) setTimeout(() => popup(`${BAT.band.icon} ${BAT.band.label} battery now`, BAT.band.color), 1900);
   if (STASH.full > jarsBefore) Win.push({type: 'jar', n: STASH.full});
+  if (entry.tox) Win.push({type: 'cloud', id: h.id, before: before.cloud, after: after.cloud, calm: after.calm, hit, need: entry.need});
   for (const m of passed) Win.push({type: 'mission', mission: m});
   if (after.status !== before.status) Win.push({type: 'status', id: h.id, from: before.status, to: after.status});
   if (after.stars >= 3 && after.stars > before.stars) Win.push({type: 'heat', id: h.id});
@@ -1842,6 +1935,17 @@ const Win = {
         <div class="row"><button class="btn haz small" data-act="win-bail" data-id="${esc(h.id)}">🚨 Bail</button><button class="btn small" data-act="win-laylow" data-id="${esc(h.id)}">🌙 Lay low</button><button class="btn small" data-act="collect">Got it</button></div></div>${tap}`;
       Sound.play('heat'); vibrate([200, 100, 200]);
       document.body.classList.remove('shake'); void document.body.offsetWidth; document.body.classList.add('shake');
+    } else if (item.type === 'cloud'){
+      const h = byId(item.id); if (!h){ this.next(); return; }
+      const grew = item.after > item.before + .01, shrank = item.after < item.before - .01, n = esc(first(h));
+      el.className = `win bars${grew ? ' haz' : ' calm'}`;
+      el.innerHTML = `<div class="win-card"><p class="win-kicker" style="--wc:${grew ? '#ffd400' : 'var(--palm)'}">☢️ Toxic cloud · ${n}</p>
+        <h2 class="win-stamp" style="font-size:clamp(46px,14vw,80px)">${grew ? 'Cloud grew' : shrank ? 'Cloud shrank' : 'Cloud held'}</h2>
+        <div class="streak" style="width:min(100%,300px)" aria-label="Calm streak ${Math.min(item.calm, CALM_TO_SHRINK)} of ${CALM_TO_SHRINK}">${Array.from({length: CALM_TO_SHRINK}, (_, i) => `<i${i < item.calm ? ' class="on"' : ''}></i>`).join('')}</div>
+        <p class="win-sub">Calm streak ${Math.min(item.calm, CALM_TO_SHRINK)}/${CALM_TO_SHRINK}</p>
+        <p class="win-text">${grew ? `That contact left you feeling worse, so the cloud around ${n} grew and the calm streak reset. <strong>Protect your headspace.</strong>` : shrank ? `Calm again. After ${CALM_TO_SHRINK} calm contacts in a row, the cloud is finally shrinking. Slowly, but it's yours.` : `You stayed okay. The cloud held. ${CALM_TO_SHRINK - Math.min(item.calm, CALM_TO_SHRINK)} more calm ${CALM_TO_SHRINK - item.calm === 1 ? 'contact' : 'contacts'} in a row and it starts to shrink.`}${item.need === 'chose' ? ` <strong>You chose this contact.</strong> Next time, try 🚨 Bail first and see how that feels.` : ''}</p>
+        <div class="row">${grew ? `<button class="btn haz small" data-act="win-bail" data-id="${esc(h.id)}">🚨 Bail</button><button class="btn palm small" data-act="win-safe">🏠 Safe people</button>` : ''}<button class="btn ${grew ? '' : 'palm'}" data-act="collect">Got it</button></div></div><p class="win-tap">Tap to continue</p>`;
+      Sound.play(grew ? 'bad' : 'calm'); if (grew){ vibrate([150, 80, 150]); document.body.classList.remove('shake'); void document.body.offsetWidth; document.body.classList.add('shake'); }
     } else if (item.type === 'jar'){
       el.className = 'win bars';
       el.innerHTML = `<div class="win-card"><p class="win-kicker">Jar #${item.n} secured</p><h2 class="win-stamp">Stash full</h2><p class="win-sub"><b>Respect +${JAR_RESPECT}</b></p><p class="win-text">A whole jar of times you showed up for your people. Fresh jar's ready.</p><button class="btn gold" data-act="collect">Stash it</button></div>${tap}`;
@@ -1980,6 +2084,7 @@ document.addEventListener('click', e => {
     if (act === 'breathe'){ Win.queue.unshift({type: 'breathe'}); Win.next(); return; }
     if (act === 'win-laylow'){ const h = byId(b.dataset.id); Win.next(); if (h) setLayLow(h, 1); return; }
     if (act === 'win-bail'){ const id = b.dataset.id; Win.queue = []; Win.next(); bail(id); return; }
+    if (act === 'win-safe'){ Win.queue = []; Win.next(); setSafehouse(true); return; }
     if (act === 'win-silence'){ const h = byId(b.dataset.id); Win.next(); if (h) setSilent(h, true); return; }
     if (act === 'win-noreply'){
       const h = byId(b.dataset.id);
@@ -2012,7 +2117,10 @@ document.addEventListener('click', e => {
     case 'crew-filter': crewFilter = v; Sound.play('tap'); renderHomies(); break;
     case 'hitup': hitUpSheet(id); break;
     case 'catchup': hitSheet(id, 'saw'); break;
-    case 'deal': hitSheet(id, 'text'); break;
+    case 'deal': needSheet(id); break;
+    case 'need': feelSheet(id, v); break;
+    case 'feel': logInteraction(id, $('#sheet').dataset.kind || 'text', v, {need: t.dataset.need}); break;
+    case 'reach-safe': { const pickH = [...LIGHT.from, ...data.homies.filter(x => ['golden', 'dope'].includes(A.get(x.id).status))].find(x => !x.toxic && !away(x) && RANGE.has(x.id)) || data.homies.find(x => !x.toxic && !away(x)); if (pickH) hitUpSheet(pickH.id); else addSheet(); break; }
     case 'boundary': boundarySheet(id); break;
     case 'noreply-mission': if (h){ if (!data.missions.some(m => !m.done && !m.skipped && m.type === 'noreply' && m.homieId === h.id)){ data.missions.push(newMission('noreply', h.id, `Don't reply to ${first(h)} tonight`)); save(); renderAll(); } closeSheet(); toast("Mission added. Tick it off once tonight's done. 🛡️"); } break;
     case 'reach': setTimeout(() => hitSheet(id, t.dataset.kind), t.tagName === 'A' ? 400 : 0); break;

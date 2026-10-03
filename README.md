@@ -5,6 +5,11 @@ the middle of your Hood. Your Homies are around you. In two seconds you can see
 who's close, who's drifting, where the good energy is coming from, and where the
 difficult stuff is.
 
+It's built to help with headspace, especially for people with trauma or ADHD
+who love GTA. The aim is to grow a golden light around you from the people who
+are good for you, and to notice when you're isolating or spending more time
+around toxic people than you need to.
+
 Single page (`index.html`), phone first, no account. Same night-city style as
 [Mission Possible](https://github.com/asciikat/Mission-Possible).
 
@@ -46,6 +51,34 @@ Status comes from the **pattern**, weighted towards recent hits:
   (✏️ Edit). Undo right after a hit takes it back, and Edit can clear a
   mis-tap.
 - You can give someone a starting vibe, and your hits take over from there.
+
+## ☢️ Toxic contact: did you need to, and how do you feel?
+
+Toxic homies can't be hit up. When you've had to deal with one, the app asks two
+things, every time:
+
+1. **Did you absolutely need to contact this person?** Yes, I had to · They
+   contacted me · No, I chose to.
+2. **How do you feel now?** 😌 Okay · 😐 Neutral · ⚠️ Uneasy · ☢️ Worse. This one
+   can't be skipped.
+
+Their **toxic cloud never fades on its own**. Uneasy or Worse makes it grow and
+resets the **calm streak**. Okay or Neutral holds it steady and adds to the
+streak. Only from the **10th calm contact in a row** does the cloud start,
+slowly, to shrink. Toxic stays Toxic.
+
+## ✨ Your golden light
+
+A golden light grows around you on the map from good times with Golden homies
+(gold aura) and Super Dope homies (a warm, flickering fire glow). If you go
+quiet, it fades.
+
+The app gently flags two patterns:
+- **Toxic over your people:** more contact with toxic people than with your
+  people this week ("Did you absolutely need to?"), with a shortcut to your safe
+  people.
+- **Going quiet:** 5 or more days without time with your people, with a nudge
+  to say hi to someone good.
 
 ## 🔋 Social battery
 
