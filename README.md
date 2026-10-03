@@ -1,75 +1,91 @@
-# Homies
+# The Hood
 
-**Hit up your people, stack cash, protect your battery.** A phone-first game for
-keeping in touch, in the same GTA night-city style as
+**Your social life as a living GTA-style map.** Open it and you're standing in
+the middle of your Hood. Your Homies are around you. In two seconds you can see
+who's close, who's drifting, where the good energy is coming from, and where the
+difficult stuff is.
+
+Single page (`index.html`), phone first, no account. Same night-city style as
 [Mission Possible](https://github.com/asciikat/Mission-Possible).
 
-Single page: `index.html`. No build step, no account.
+## The map
 
-## How it plays
+- **You're in the centre.** The closer a Homie is, the more active they are in
+  your life right now. The zones are **Inner Circle**, **The Hood**,
+  **The Streets** and **Outta Town**.
+- **Drifting:** if you're not in touch, people slowly drift outwards. That's not
+  bad, they're just less active right now.
+- **Crews** each get their own turf on the map (Family, Old Homies, Work Crew,
+  Study Crew, Parents, Online Homies, or your own).
+- **⭐ Golden aura:** a soft gold glow around nurturing people. It gets stronger
+  the more consistent they are.
+- **☢️ Radiation:** spreads from repeated bad hits. One bad hit is a tiny warning
+  ring. A pattern spreads it wider, and it can reach you. It shrinks again with
+  time or better hits.
+- **★ Heat:** GTA wanted stars, 1 to 5, showing how much headspace something is
+  taking. They blink from 3 stars up. Heat cools off within days.
+- **🏠 Safehouse:** your strongest Golden Homies sit next to it. Tap it on a bad
+  day.
 
-**Every homie rolls with a crew.** You start with 🫂 Day Ones, 🏠 Family,
-💼 Work and 🎮 Gaming, and you can start your own (name, emblem, colours).
-Pick a crew, type names (commas for a few at once), done.
+## How did that hit?
 
-**Hit someone up, get paid.** Tap 💸 *I hit someone up* (or anyone on the Crews
-screen), pick how, and collect:
+After you're in touch with someone, it's one tap: **⭐ Golden · 🔥 Good ·
+😐 Whatever · ⚠️ Off · ☢️ Bad**. You can add an optional receipt ("Cancelled
+again", "Had my back"…), or skip the rating.
 
-| Move | Payout |
-|---|---|
-| 💬 Social / DM | $10 Bronze |
-| 📱 Text | $25 Silver |
-| 📞 Phone call | $75 Gold |
-| 🤝 In person | $250 **EPIC** |
+Status comes from the **pattern**, weighted towards recent hits:
+**Golden → Super Dope → Neutral → On Watch → Toxic**, in both directions.
 
-Every contact ends in a full-screen **Mission Passed**. In person gets the
-works: rainbow stamp, cash rain, crowd noise and a screen shake.
+- One bad hit makes someone On Watch. Only a repeated pattern makes them Toxic.
+- Things improve and they move back.
+- You can give someone a starting vibe, and your hits take over from there.
 
-**Lucky Wheel.** One spin a day picks today's ×2: every payout with them is
-doubled. There's one re-spin if it lands on someone you can't reach today.
-People you haven't reached lately come up more often.
+The app never says "Dave is Toxic". It says "Recent interactions with Dave have
+repeatedly left you feeling worse."
 
-**Vibes.** Open anyone's ⋯ and set their vibe:
-- 💚 **Nurturing**: pays ×1.5, *recharges* your battery and clears radiation. Rad vibes.
-- 😐 **Neutral**: normal payout, uses a bit of battery.
-- ☢️ **Toxic**: pays nothing, drains your battery double and gives off
-  **radiation**. Each contact with them gets an exposure warning, with
-  boundary lines you can copy. Toxic homies never go on the wheel.
+## Quick actions (tap any Homie)
 
-**Social battery.** Check in each day (Empty, Low, Okay, Full). Contacts use
-battery, nurturing homies give it back, and 🛌 a breather adds 15% (once an hour).
-When it's low, only nurturing homies go on the wheel.
+- **📲 Hit them up:** call or text. Add their number and it opens your phone.
+  Either way, *How did that hit?* is waiting when you're back.
+- **🤝 Catch up:** log it in one tap.
+- **🌙 Lay low:** fade them out for 24 hours, 3 days, a week, or a custom number
+  of days.
+- **🔇 Radio silence:** you've decided not to interact for a while. They stay in
+  the Hood, greyed out, until you break it.
+- **🚨 Bail:** you don't have to deal with it right now. The app reminds you that
+  you don't have to reply. From there: breathe for 30 seconds, lay low, or make
+  it a mission not to reply tonight.
 
-**Radiation.** Builds up with toxic contact (8 to 50 rads per contact) and halves
-every 2 days. Elevated at 20, high at 50 and critical at 90, when the app
-suggests the safehouse. Nurturing contacts clear it faster.
+Each Homie also shows **Heat**, **Respect** (positive history), **last seen**
+("Texted 2 days ago", "No contact for 3 months"), their recent hits and their
+**receipts**.
 
-**🏠 Safehouse.** The house button (or `…/homies/#safehouse`) hides the game.
-What's left: your battery, a breather button, your nurturing people with a
-no-pressure text to copy, and crisis lines (Lifeline 13 11 14, Beyond Blue,
-988, Samaritans).
+## Hood Pulse and missions
 
-**Weekly heist.** Reach 3 different homies in a week for the $100 crew job, or 6
-for the $250 big heist. Toxic contacts don't count.
+**Hood Pulse** at the top: counts of Golden, Super Dope, Drifting, On Watch,
+Toxic, Building Heat, Laying Low and Radio Silence, plus one plain sentence. Tap
+any count to highlight those Homies on the map.
 
-**Rep.** Total cash and rank (Lone Wolf up to Godfather of the Group Chat),
-crew standings for the week, a vibe report with your toxic exposure over the
-last 30 days, 12 trophies, recent moves, sound, and backup/restore.
+**Missions** show up each day ("Catch up with Sam", "Call Mum", "Check in with
+Noor", "Don't reply to Dave tonight"). You can also add your own, or 🎰 spin the
+Lucky Wheel for one. Logging the contact completes the mission automatically:
+**MISSION PASSED · Respect +1**.
 
-## Where your data lives
+## Safehouse mode
 
-Everything is saved in this browser (`localStorage`, key `homies.v3`). Use
-**Back up** on the Rep screen now and then. **Restore** merges a backup back in,
-and also takes Friend Orbit backups: circles become crews, and safe people
-become nurturing. Earlier versions of Homies move across by themselves.
+The 🏠 button hides the map. What's left: your safe people (with one-tap call or
+text if you've saved a number), a text that asks for nothing, a 30-second
+breathing exercise, and crisis lines (Lifeline 13 11 14, Beyond Blue, 988,
+Samaritans).
 
-Homies and Mission Possible both live on `asciikat.github.io` and share browser
-storage. Homies only uses keys starting with `homies.`.
+## Data
+
+Saved in this browser only (`localStorage`, key `homies.hood.v1`). Use **☰ →
+Back up** now and then. **Restore** merges a backup in, and also takes Friend
+Orbit and older Homies backups. Data from earlier versions of Homies moves across
+automatically.
 
 ## Host free on GitHub Pages
 Repo **Settings → Pages → Deploy from a branch → `main` / root**, then open
-`https://asciikat.github.io/homies/`.
-
-## Install as an app
-Chrome/Edge: **Install** from the address bar or menu. iPhone: Safari
-**Share → Add to Home Screen**. Opens full-screen and works offline.
+`https://asciikat.github.io/homies/`. Install it from the browser menu (or Safari
+**Share → Add to Home Screen**) to get a full-screen app that works offline.

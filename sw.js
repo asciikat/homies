@@ -1,7 +1,7 @@
 // Homies service worker: makes the app installable and lets it open offline.
 // Pages are fetched fresh when online (so updates arrive) and fall back to the
 // last saved copy when offline.
-const CACHE = 'homies-v3';
+const CACHE = 'homies-v4';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 
