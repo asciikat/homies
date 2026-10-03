@@ -76,6 +76,32 @@ a { color: var(--palm); }
 @keyframes bump { 40% { transform: scale(1.18); } }
 .icon-btn { width: 42px; height: 42px; flex: none; display: grid; place-items: center; border-radius: 50%; border: 2px solid var(--line-2); background: rgba(255, 255, 255, .04); font-size: 19px; padding: 0; }
 .icon-btn.house { border-color: rgba(46, 230, 200, .55); }
+.bat-pill { display: inline-flex; align-items: center; gap: 4px; min-height: 42px; padding: 0 10px; border-radius: 999px; border: 2px solid color-mix(in srgb, var(--bc) 55%, transparent); background: color-mix(in srgb, var(--bc) 10%, transparent); color: var(--bc); font: 900 19px/1 var(--font-display); white-space: nowrap; }
+@media (max-width: 420px) { .pill small { display: none; } .logo { font-size: 25px; } .top-in { gap: 6px; padding-inline: 12px; } }
+/* social battery */
+.batt { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; align-items: center; padding: 11px 12px; border-radius: 14px; background: rgba(0, 0, 0, .25); border: 1px solid var(--line); text-align: left; width: 100%; }
+.batt .bv { grid-row: span 2; font: 900 34px/1 var(--font-display); color: var(--bc); }
+.batt .bl { font: 800 14px/1.1 var(--font-hud); letter-spacing: .1em; text-transform: uppercase; color: var(--bc); }
+.batt .bh { font-size: 14px; color: var(--smog); line-height: 1.3; }
+.cells { display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; height: 12px; grid-column: 1 / -1; margin-top: 4px; }
+.cells i { border-radius: 2px; background: rgba(255, 255, 255, .08); }
+.cells i.on { background: var(--bc); box-shadow: 0 0 6px color-mix(in srgb, var(--bc) 60%, transparent); }
+.checkin { display: grid; gap: 8px; }
+.checkin-btns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.ci { display: grid; justify-items: center; gap: 3px; min-height: 74px; padding: 8px 2px; border-radius: 14px; border: 2px solid color-mix(in srgb, var(--bc) 50%, transparent); background: color-mix(in srgb, var(--bc) 8%, transparent); font: 800 14px/1 var(--font-hud); letter-spacing: .06em; text-transform: uppercase; color: var(--bc); }
+.ci span { font-size: 24px; }
+.ci small { font: 600 11px/1.15 var(--font-body); letter-spacing: 0; text-transform: none; color: var(--smog); text-align: center; }
+.ci[aria-pressed="true"] { background: color-mix(in srgb, var(--bc) 24%, transparent); border-color: var(--bc); }
+.ci:active { transform: translateY(2px); }
+.range { margin: 10px 0 0; display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 10px 12px; border-radius: 12px; background: rgba(255, 255, 255, .04); font-size: 15px; }
+.risk { margin-top: 10px; display: grid; gap: 6px; padding: 11px 13px; border-radius: 12px; border: 3px solid transparent; background: linear-gradient(#17140a, #17140a) padding-box, var(--stripes) border-box; }
+.risk-top { display: flex; justify-content: space-between; font: 800 14px/1 var(--font-hud); letter-spacing: .1em; text-transform: uppercase; color: #ffd400; }
+.risk-bar { height: 12px; border-radius: 999px; background: rgba(255, 255, 255, .08); overflow: hidden; }
+.risk-bar i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #ffd400, var(--s-toxic)); }
+.risk p { margin: 0; font-size: 14.5px; color: var(--smog); }
+.toxic-banner { margin-top: 10px; padding: 12px 13px; border-radius: 12px; border: 3px solid transparent; background: linear-gradient(#141a08, #141a08) padding-box, var(--stripes) border-box; font-size: 15px; }
+.toxic-banner b { color: var(--s-toxic); }
+.hitb small { font: 700 11.5px/1 var(--font-hud); letter-spacing: .02em; color: var(--smog); }
 .in-safehouse .icon-btn.house { background: var(--palm); }
 
 main, .safehouse { max-width: 560px; margin: 0 auto; padding: 12px 14px calc(env(safe-area-inset-bottom, 0px) + 32px); display: grid; gap: 14px; }
@@ -296,6 +322,7 @@ main, .safehouse { max-width: 560px; margin: 0 auto; padding: 12px 14px calc(env
 <header class="top">
   <div class="top-in">
     <div class="logo">The Hood</div>
+    <button class="bat-pill" id="bat-pill" data-act="battery" aria-label="Social battery"></button>
     <button class="pill" id="respect-pill" data-act="menu" aria-label="Your respect"><small>Respect</small><b id="respect">0</b></button>
     <button class="icon-btn house" id="safe-btn" data-act="safehouse" aria-label="Safehouse" aria-pressed="false">🏠</button>
     <button class="icon-btn" data-act="menu" aria-label="Menu">☰</button>
@@ -310,7 +337,7 @@ main, .safehouse { max-width: 560px; margin: 0 auto; padding: 12px 14px calc(env
       <canvas id="map" role="img" aria-label="Map of your Hood"></canvas>
       <div class="map-empty" id="map-empty" hidden></div>
     </div>
-    <div class="map-key" aria-hidden="true"><span>⭐ Golden</span><span>🔥 Super dope</span><span>⚠️ On watch</span><span>☢️ Toxic</span><span>★ Heat</span></div>
+    <div class="map-key" aria-hidden="true"><span>⭐ Golden</span><span>🔥 Super dope</span><span>⚠️ Watch this fool</span><span>☢️ Toxic</span><span>★ Heat</span></div>
     <div class="actions3">
       <button class="act3" data-act="add"><span>➕</span>Homie</button>
       <button class="act3" data-act="wheel"><span>🎰</span>Spin</button>
@@ -382,7 +409,7 @@ const STATUS = {
   golden:  {emoji:'⭐', label:'Golden',     color:'var(--s-golden)',  hex:'#ffd166'},
   dope:    {emoji:'🔥', label:'Super Dope', color:'var(--s-dope)',    hex:'#ff7a3d'},
   neutral: {emoji:'',   label:'Neutral',    color:'var(--s-neutral)', hex:'#c9c2d9'},
-  watch:   {emoji:'⚠️', label:'On Watch',   color:'var(--s-watch)',   hex:'#ffd400'},
+  watch:   {emoji:'⚠️', label:'Watch This Fool', color:'var(--s-watch)', hex:'#ffd400'},
   toxic:   {emoji:'☢️', label:'Toxic',      color:'var(--s-toxic)',   hex:'#b6ff3c'},
 };
 const STATUS_ORDER = ['toxic', 'watch', 'neutral', 'dope', 'golden'];
@@ -420,10 +447,21 @@ const MISSION_TYPES = {
   hitup:   {label:'Hit up',          kinds:['saw', 'call', 'text', 'online']},
   noreply: {label:'Do not reply to', kinds:[]},
 };
+// Social battery: how much you can handle today. Each level adds who's in range.
+const BANDS = [
+  {key:'low',    label:'Low',    min:0,  check:25,  icon:'🪫', color:'#ff9b3d', handles:'Your low-battery list'},
+  {key:'medium', label:'Medium', min:35, check:50,  icon:'🔋', color:'#ffd166', handles:'+ Neutral homies'},
+  {key:'high',   label:'High',   min:60, check:75,  icon:'🔋', color:'#c6f26b', handles:'+ Watch This Fool'},
+  {key:'peak',   label:'Peak',   min:85, check:100, icon:'⚡', color:'#7cf29a', handles:'+ Toxic, if you must'},
+];
+const HIT_BAT = {golden: 10, good: 4, meh: -4, off: -10, bad: -18, none: -4}; // battery change per contact
+const TOXIC_DRAIN = -10;                 // extra drain from any contact with a toxic homie
+const REST_AMOUNT = 15, REST_COOLDOWN = 36e5;
+const TOXIC_AT = -1.1;                   // pattern score where someone goes Toxic, for good
 const PARENT_NAMES = /^(mum|mom|mummy|mother|dad|daddy|father|nan|nana|nanna|pop|grandma|grandpa|granny)$/i;
 
 /* ---------- state ---------- */
-let data = {v: 1, crews: DEFAULT_CREWS.map(c => ({...c})), homies: [], missions: [], missionsDay: '', kept: 0};
+let data = {v: 1, crews: DEFAULT_CREWS.map(c => ({...c})), homies: [], missions: [], missionsDay: '', kept: 0, battery: null, rests: []};
 let saveOk = true;
 const prefs = (() => { try { return JSON.parse(localStorage.getItem(PREF_KEY) || '{}') || {}; } catch (e) { return {}; } })();
 if (typeof prefs.sound !== 'boolean') prefs.sound = true;
@@ -433,6 +471,8 @@ let focus = null;           // pulse filter: {key, ids:Set}
 let crewFilter = 'all';
 let shownRespect = null;
 let pendingReceipts = new Set();
+let BAT = {level: 70, checked: false, band: BANDS[2]}; // today's social battery, refreshed every render
+let RANGE = new Set();      // who you can handle on today's battery
 
 /* ---------- model ---------- */
 function normCrew(r){
@@ -447,7 +487,7 @@ function normHomie(r){
   if (!name) return null;
   const id = okId(r.id) ? r.id : uid('h');
   const log = (Array.isArray(r.log) ? r.log : []).filter(l => l && (KINDS[l.kind] || l.kind === 'bail') && Number.isFinite(l.at)).slice(0, 800)
-    .map(l => ({id: okId(l.id) ? l.id : uid('l'), at: l.at, kind: l.kind, hit: HITS[l.hit] ? l.hit : null}))
+    .map(l => ({id: okId(l.id) ? l.id : uid('l'), at: l.at, kind: l.kind, hit: HITS[l.hit] ? l.hit : null, tox: !!l.tox}))
     .sort((a, b) => b.at - a.at);
   const receipts = (Array.isArray(r.receipts) ? r.receipts : []).filter(x => x && typeof x.text === 'string' && x.text.trim() && Number.isFinite(x.at)).slice(0, 200)
     .map(x => ({id: okId(x.id) ? x.id : uid('r'), at: x.at, text: str(x.text, 80), tone: x.tone > 0 ? 1 : x.tone < 0 ? -1 : 0}))
@@ -461,6 +501,9 @@ function normHomie(r){
     createdAt: Number.isFinite(r.createdAt) ? r.createdAt : Date.now(),
     layLowUntil: Number.isFinite(r.layLowUntil) ? r.layLowUntil : 0,
     silent: !!r.silent,
+    // once someone goes Toxic it sticks; `by` is the hit that did it, so Undo can take it back
+    toxic: r.toxic && Number.isFinite(r.toxic.at) ? {at: r.toxic.at, by: typeof r.toxic.by === 'string' ? r.toxic.by.slice(0, 80) : 'pattern'} : null,
+    lowBat: r.lowBat === true ? true : r.lowBat === false ? false : null, // your call for the low-battery list; null = good people by default
     log, receipts,
   };
 }
@@ -493,7 +536,8 @@ function fromOld(r){
   return normHomie({
     id: r.id, name: r.name, emoji: r.emoji, createdAt: r.createdAt,
     crewId: r.crewId || crewForName(r.circle),
-    base: VIBE_BASE[r.vibe] ?? (r.safe ? 2 : 0),
+    base: r.vibe === 'toxic' ? -1 : VIBE_BASE[r.vibe] ?? (r.safe ? 2 : 0),
+    toxic: r.vibe === 'toxic' ? {at: Date.now(), by: 'pattern'} : null,
     receipts: Array.isArray(r.topics) ? r.topics.map(t => ({text: 'Ask about: ' + t.text, at: Date.now(), tone: 0})) : (r.note ? [{text: 'Ask about: ' + r.note, at: Date.now(), tone: 0}] : []),
     log: (Array.isArray(r.log) ? r.log : []).map(l => l && ({id: l.id, at: l.at, kind: orbit ? ORBIT_KIND[l.kind] : TIER_KIND[l.tier]})).filter(l => l && KINDS[l.kind]),
   });
@@ -524,7 +568,11 @@ function analyze(h, now = Date.now()){
   }
   if (t !== null){ const dt = now - t; rad *= decay(dt, HALF.rad); aura *= decay(dt, HALF.aura); heat *= decay(dt, HALF.heat); }
   const score = (PRIOR * h.base + swv) / (PRIOR + sw);
-  const status = score >= 1.1 ? 'golden' : score >= .5 ? 'dope' : score > -.5 ? 'neutral' : score > -1.1 ? 'watch' : 'toxic';
+  const status = h.toxic ? 'toxic' : score >= 1.1 ? 'golden' : score >= .5 ? 'dope' : score > -.5 ? 'neutral' : score > TOXIC_AT ? 'watch' : 'toxic';
+  // for anyone not yet Toxic: how many bad hits in a row would tip them over, and how close they are
+  let toToxic = 0;
+  if (!h.toxic) for (let n = 1; n <= 12; n++) if ((PRIOR * h.base + swv - 2 * n) / (PRIOR + sw + n) <= TOXIC_AT){ toToxic = n; break; }
+  const risk = h.toxic ? 1 : clamp((-.5 - score) / (-.5 - TOXIC_AT), 0, 1);
   respect += h.receipts.filter(r => r.tone > 0).length + data.missions.filter(m => m.done && m.homieId === h.id).length;
   const zone = act >= 2.5 ? 'inner' : act >= 1 ? 'hood' : act >= .3 ? 'streets' : 'outta';
   const rfrac = act >= 2.5 ? lerp(.34, .21, clamp(Math.log(act / 2.5) / Math.log(3.2), 0, 1))
@@ -535,7 +583,7 @@ function analyze(h, now = Date.now()){
   const stars = HEAT_STEPS.filter(x => heat >= x).length;
   const radVis = Math.max(rad, status === 'toxic' ? 1.5 : status === 'watch' ? .45 : 0);
   const auraVis = status === 'golden' ? Math.max(aura, 1.2) : status === 'dope' ? Math.min(Math.max(aura, .35), .7) : 0;
-  return {act, zone, rfrac, score, status, rad, radVis, aura, auraVis, heat, stars, respect, rated, last: lastC,
+  return {act, zone, rfrac, score, status, toToxic, risk, rad, radVis, aura, auraVis, heat, stars, respect, rated, last: lastC,
     drifting: !!lastC && now - lastC.at > 21 * DAY && (zone === 'streets' || zone === 'outta') && !away(h)};
 }
 function trendOf(h){
@@ -551,8 +599,8 @@ function patternLine(h){
     golden:  `Time with ${n} has consistently left you feeling better.`,
     dope:    `Things with ${n} have mostly felt good lately.`,
     neutral: `No strong pattern with ${n} right now.`,
-    watch:   `Something's felt off with ${n} lately. Worth watching, not judging.`,
-    toxic:   `Recent interactions with ${n} have repeatedly left you feeling worse.`,
+    watch:   `Something's felt off with ${n} lately. Watch this fool. They can still turn it around.`,
+    toxic:   `Repeated interactions with ${n} have left you feeling worse. Toxic is for good now. Keep your distance.`,
   }[a.status];
 }
 function ago(t){
@@ -578,7 +626,36 @@ function playerRespect(){
   for (const h of data.homies) r += A.get(h.id).respect;
   return r + data.missions.filter(m => m.done && !m.homieId).length;
 }
-function refresh(){ A = new Map(data.homies.map(h => [h.id, analyze(h)])); }
+function battery(){
+  const checked = !!(data.battery && data.battery.date === dayKey());
+  let level = checked ? data.battery.level : 70;
+  const since = checked ? data.battery.at : startOfDay(Date.now()), ev = [];
+  for (const h of data.homies) for (const l of h.log){ if (l.at < since) break; if (KINDS[l.kind]) ev.push([l.at, HIT_BAT[l.hit || 'none'] + (l.tox ? TOXIC_DRAIN : 0)]); }
+  for (const r of data.rests) if (r.at >= since) ev.push([r.at, r.amt]);
+  ev.sort((a, b) => a[0] - b[0]);
+  for (const [, d] of ev) level = clamp(level + d, 0, 100);
+  level = Math.round(level);
+  return {level, checked, band: [...BANDS].reverse().find(b => level >= b.min)};
+}
+const bandOf = key => BANDS.find(b => b.key === key);
+const onLowList = h => h.lowBat === true || (h.lowBat !== false && ['golden', 'dope'].includes(A.get(h.id).status));
+// Low: your low-battery list. Medium: + neutral. High: + watch this fool. Peak: + toxic.
+function canHandle(h, band = BAT.band.key){
+  if (h.silent) return false;
+  if (onLowList(h)) return true;
+  const st = A.get(h.id).status, lvl = BANDS.findIndex(b => b.key === band);
+  return lvl >= 1 && ['golden', 'dope', 'neutral'].includes(st) || lvl >= 2 && st === 'watch' || lvl >= 3 && st === 'toxic';
+}
+const lastRest = () => data.rests.reduce((m, r) => Math.max(m, r.at), 0);
+function refresh(){
+  A = new Map(data.homies.map(h => [h.id, analyze(h)]));
+  // Toxic is for good: lock in anyone the pattern has tipped over
+  let locked = false;
+  for (const h of data.homies) if (!h.toxic && A.get(h.id).status === 'toxic'){ h.toxic = {at: Date.now(), by: h.log[0] ? h.log[0].id : 'pattern'}; locked = true; }
+  if (locked) save();
+  BAT = battery();
+  RANGE = new Set(data.homies.filter(h => canHandle(h)).map(h => h.id));
+}
 
 /* ---------- storage ---------- */
 function load(){
@@ -592,6 +669,8 @@ function load(){
       data.missions = (Array.isArray(p.missions) ? p.missions : []).map(normMission).filter(Boolean).slice(-600);
       data.missionsDay = typeof p.missionsDay === 'string' ? p.missionsDay : '';
       data.kept = Number.isFinite(p.kept) ? Math.max(0, p.kept) : 0;
+      data.battery = p.battery && typeof p.battery.date === 'string' && Number.isFinite(p.battery.level) && Number.isFinite(p.battery.at) ? {date: p.battery.date, level: clamp(p.battery.level, 0, 100), at: p.battery.at} : null;
+      data.rests = (Array.isArray(p.rests) ? p.rests : []).filter(r => r && Number.isFinite(r.at) && Number.isFinite(r.amt)).slice(-200);
       fixCrews();
       return;
     }
@@ -901,7 +980,7 @@ const Hood = (() => {
   function drawMarker(n, m, t, anim){
     const h = n.h, an = A.get(h.id); if (!an) return;
     const st = STATUS[an.status], {x, y} = n;
-    let alpha = h.silent ? .3 : layingLow(h) ? .42 : 1;
+    let alpha = h.silent ? .3 : layingLow(h) ? .42 : !RANGE.has(h.id) ? .4 : 1;
     if (focus && !focus.ids.has(h.id)) alpha *= .25;
     ctx.globalAlpha = alpha;
     ctx.fillStyle = 'rgba(5,4,10,.6)'; ctx.beginPath(); ctx.arc(x + 1.5, y + 2.5, m, 0, TAU); ctx.fill();
@@ -919,9 +998,10 @@ const Hood = (() => {
   function drawLabels(n, m, t, anim){
     const h = n.h, an = A.get(h.id); if (!an) return;
     const st = STATUS[an.status], {x, y} = n;
-    let alpha = h.silent ? .3 : layingLow(h) ? .42 : 1;
+    let alpha = h.silent ? .3 : layingLow(h) ? .42 : !RANGE.has(h.id) ? .55 : 1;
     if (focus && !focus.ids.has(h.id)) alpha *= .25;
     ctx.globalAlpha = alpha; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    if (!RANGE.has(h.id) && !h.silent && !layingLow(h)){ ctx.font = `${Math.round(m * .62)}px sans-serif`; ctx.fillText('🪫', x - m * .78, y - m * .72); }
     const badge = h.silent ? '🔇' : layingLow(h) ? '🌙' : st.emoji;
     if (badge){ ctx.font = `${Math.round(m * .62)}px sans-serif`; ctx.fillText(badge, x + m * .78, y - m * .72); }
     // heat: GTA wanted stars, blinking at three or more
@@ -987,7 +1067,21 @@ function renderAll(){
   renderSafehouse();
 }
 let respectAnim = 0;
+const cells = (n, of = 10) => `<div class="cells" aria-hidden="true">${Array.from({length: of}, (_, i) => `<i${i < n ? ' class="on"' : ''}></i>`).join('')}</div>`;
+function batteryCard(act = 'battery'){
+  const b = BAT, out = data.homies.filter(h => !RANGE.has(h.id) && !h.silent).length;
+  return `<button class="batt" style="--bc:${b.band.color}" data-act="${act}" aria-label="Social battery ${b.level}%, ${b.band.label}. Tap to change.">
+    <span class="bv">${b.level}%</span><span class="bl">${b.band.icon} ${b.band.label} battery${b.checked ? '' : ' (guess)'}</span>
+    <span class="bh">${b.band.key === 'low' ? 'Just your low-battery list today.' : b.band.key === 'medium' ? 'Good and neutral people.' : b.band.key === 'high' ? 'Everyone except toxic.' : 'You can handle anyone today.'}${out ? ` ${out} out of range.` : ''}</span>${cells(Math.round(b.level / 10))}</button>`;
+}
+function checkinHTML(){
+  return `<div class="checkin"><p class="kicker">How's your social battery?</p><div class="checkin-btns" role="group" aria-label="Social battery">${BANDS.map(b => `<button class="ci" style="--bc:${b.color}" data-act="checkin" data-v="${b.check}" aria-pressed="${BAT.checked && BAT.band.key === b.key}"><span>${b.icon}</span>${b.label}<small>${b.handles}</small></button>`).join('')}</div></div>`;
+}
 function renderTop(){
+  const bp = $('#bat-pill');
+  bp.style.setProperty('--bc', BAT.checked ? BAT.band.color : 'var(--smog)');
+  bp.textContent = `${BAT.band.icon} ${BAT.checked ? BAT.level + '%' : '?'}`;
+  bp.setAttribute('aria-label', BAT.checked ? `Social battery ${BAT.level}%, ${BAT.band.label}` : 'Social battery: check in');
   const v = playerRespect(), el = $('#respect'), from = shownRespect ?? v;
   shownRespect = v;
   $('#safe-btn').setAttribute('aria-pressed', String(!!prefs.safehouse));
@@ -1010,9 +1104,10 @@ function pulseGroups(){
     {key:'golden', icon:'⭐', label:'Golden',        color:'var(--s-golden)', list: hs.filter(h => a(h).status === 'golden' && !h.silent)},
     {key:'dope',   icon:'🔥', label:'Super dope',    color:'var(--s-dope)',   list: hs.filter(h => a(h).status === 'dope' && !h.silent)},
     {key:'drift',  icon:'💨', label:'Drifting',      color:'var(--dusk)',     list: hs.filter(h => a(h).drifting)},
-    {key:'watch',  icon:'⚠️', label:'On watch',      color:'var(--s-watch)',  list: hs.filter(h => a(h).status === 'watch' && !h.silent)},
+    {key:'watch',  icon:'⚠️', label:'Watch this fool', color:'var(--s-watch)', list: hs.filter(h => a(h).status === 'watch' && !h.silent)},
     {key:'toxic',  icon:'☢️', label:'Toxic',         color:'var(--s-toxic)',  list: hs.filter(h => a(h).status === 'toxic' && !h.silent)},
     {key:'heat',   icon:'🚨', label:'Building heat', color:'#ff5a6e',         list: hs.filter(h => a(h).stars >= 2 && !h.silent)},
+    {key:'out',    icon:'🪫', label:'Out of range',  color:'#ff9b3d',         list: hs.filter(h => !RANGE.has(h.id) && !h.silent)},
     {key:'low',    icon:'🌙', label:'Laying low',    color:'var(--dusk)',     list: hs.filter(h => layingLow(h) && !h.silent)},
     {key:'silent', icon:'🔇', label:'Radio silence', color:'var(--dim)',      list: hs.filter(h => h.silent)},
   ];
@@ -1031,9 +1126,10 @@ function renderPulse(){
   else if (by('dope').length) bits.push(`Good times with ${nameList(by('dope'))}.`);
   if (by('heat').length) bits.push(`Heat is building around ${nameList(by('heat'))}.`);
   else if (by('toxic').length) bits.push(`Radiation around ${nameList(by('toxic'))}.`);
-  else if (by('watch').length) bits.push(`Keeping an eye on ${nameList(by('watch'))}.`);
+  else if (by('watch').length) bits.push(`Watching ${nameList(by('watch'))}.`);
   if (by('drift').length) bits.push(`${nameList(by('drift'))} ${by('drift').length === 1 ? 'is' : 'are'} drifting.`);
   el.innerHTML = `<h2>Hood pulse <span>${data.homies.length} ${data.homies.length === 1 ? 'homie' : 'homies'}</span></h2>
+    ${BAT.checked ? batteryCard() : checkinHTML()}
     ${groups.length ? `<div class="pulse-row" role="group" aria-label="Show these on the map">${groups.map(g => `<button class="ptile" style="--pc:${g.color}" data-act="focus" data-v="${g.key}" aria-pressed="${!!(focus && focus.key === g.key)}"><b><span>${g.icon}</span>${g.list.length}</b><small>${g.label}</small></button>`).join('')}</div>` : ''}
     <p class="pulse-say">${bits.join(' ') || 'All quiet in the Hood. No strong patterns yet.'}${focus ? ` <button class="link" data-act="focus" data-v="">Show everyone</button>` : ''}</p>`;
 }
@@ -1041,7 +1137,9 @@ function renderAlert(){
   const el = $('#alert');
   const reaching = Hood.radiationReaching();
   const hot = data.homies.filter(h => A.get(h.id) && A.get(h.id).stars >= 4 && !h.silent);
-  if (reaching.length){
+  if (BAT.checked && BAT.level <= 15){
+    el.innerHTML = `<div class="alert"><p><b>🪫 Battery's nearly flat.</b> Nobody is urgent today. The safehouse is open, and a breather helps.</p><div class="row"><button class="btn palm small" data-act="safehouse">🏠 Safehouse</button><button class="btn small" data-act="rest"${lastRest() + REST_COOLDOWN > Date.now() ? ' disabled' : ''}>🛌 Breather +${REST_AMOUNT}%</button></div></div>`;
+  } else if (reaching.length){
     const h = reaching[0];
     el.innerHTML = `<div class="alert"><p><b>☢️ The radiation around ${esc(first(h))} is reaching you.</b> You don't have to engage. Step back, lay low, or bail.</p><div class="row"><button class="btn haz small" data-act="bail" data-id="${esc(h.id)}">🚨 Bail</button><button class="btn small" data-act="laylow" data-id="${esc(h.id)}">🌙 Lay low</button></div></div>`;
   } else if (hot.length){
@@ -1067,7 +1165,7 @@ function ensureMissions(){
   const hs = data.homies.filter(h => !h.silent), a = h => A.get(h.id);
   const since = h => a(h).last ? Date.now() - a(h).last.at : Infinity;
   hs.filter(h => a(h).stars >= 3 || (a(h).status === 'toxic' && since(h) < 3 * DAY)).forEach(h => add('noreply', h));
-  hs.filter(h => !layingLow(h) && (crewOf(h).name.toLowerCase().includes('parent') || PARENT_NAMES.test(first(h))) && since(h) > 10 * DAY).forEach(h => add('call', h));
+  hs.filter(h => !layingLow(h) && h.toxic === null && (crewOf(h).name.toLowerCase().includes('parent') || PARENT_NAMES.test(first(h))) && since(h) > 10 * DAY).forEach(h => add('call', h));
   hs.filter(h => !layingLow(h) && ['golden', 'dope'].includes(a(h).status) && since(h) > 14 * DAY).sort((x, y) => since(y) - since(x)).forEach(h => add('catchup', h));
   hs.filter(h => !layingLow(h) && a(h).status === 'neutral' && since(h) > 21 * DAY).sort((x, y) => since(y) - since(x)).forEach(h => add('checkin', h));
   data.missions.push(...out);
@@ -1080,7 +1178,10 @@ function missionText(m){
   return `${MISSION_TYPES[m.type] ? MISSION_TYPES[m.type].label : ''} ${h.name}`.trim();
 }
 function renderMissions(){
-  const act = data.missions.filter(m => !m.done && !m.skipped);
+  // missions with people outside today's battery wait for a better day
+  const live = data.missions.filter(m => !m.done && !m.skipped);
+  const act = live.filter(m => m.type === 'noreply' || !m.homieId || RANGE.has(m.homieId));
+  const waiting = live.length - act.length;
   const passed = data.missions.filter(m => m.done && dayKey(m.done) === dayKey()).length;
   $('#missions').innerHTML = `<h2>Missions <span>${passed ? `✅ ${passed} passed today` : ''}</span></h2>
     ${act.length ? act.map(m => {
@@ -1091,12 +1192,13 @@ function renderMissions(){
         <div class="mbtns">${m.homieId && m.type !== 'noreply' ? `<button data-act="open" data-id="${esc(m.homieId)}" aria-label="Open ${esc(missionText(m))}">↗</button>` : ''}<button class="done" data-act="mission-done" data-v="${esc(m.id)}" aria-label="Mission done">✓</button><button data-act="mission-skip" data-v="${esc(m.id)}" aria-label="Skip mission">✕</button></div>
       </div>`;
     }).join('') : `<p class="fine">${data.homies.length ? 'No missions right now. Spin the wheel or add one.' : 'Missions show up once your homies are in the Hood.'}</p>`}
+    ${waiting ? `<p class="fine">🪫 ${waiting} ${waiting === 1 ? 'mission is' : 'missions are'} waiting for a better battery day.</p>` : ''}
     ${data.homies.length ? `<div class="row"><button class="btn small" data-act="add-mission">＋ Mission</button><button class="btn small" data-act="wheel">🎰 Spin for one</button></div>` : ''}`;
 }
 function homieRow(h){
   const a = A.get(h.id), c = crewOf(h);
   const where = h.silent ? '🔇 Radio silence' : layingLow(h) ? `🌙 Laying low till ${new Date(h.layLowUntil).toLocaleDateString('en-AU', {weekday: 'short', day: 'numeric'})}` : esc(lastSeen(h));
-  return `<button class="hrow" data-act="open" data-id="${esc(h.id)}">${tok(h, 44)}<span class="h-text"><b>${esc(h.name)}</b><small>${where} · ${esc(c.emoji)} ${esc(c.name)}</small></span><span class="h-right">${a.status !== 'neutral' ? `<span style="font-size:16px">${STATUS[a.status].emoji}</span>` : ''}${starsHTML(a.stars)}</span></button>`;
+  return `<button class="hrow" data-act="open" data-id="${esc(h.id)}">${tok(h, 44)}<span class="h-text"><b>${esc(h.name)}</b><small>${where} · ${esc(c.emoji)} ${esc(c.name)}</small></span><span class="h-right"><span style="font-size:16px">${!RANGE.has(h.id) && !away(h) ? '🪫' : ''}${a.status !== 'neutral' ? STATUS[a.status].emoji : ''}</span>${starsHTML(a.stars)}</span></button>`;
 }
 function renderHomies(){
   const crews = data.crews.filter(c => data.homies.some(h => h.crewId === c.id));
@@ -1133,7 +1235,9 @@ function renderSafehouse(){
       <p class="quote">${esc(SAFE_MSG)}</p>
       <div><button class="btn small" data-act="copy" data-text="${esc(SAFE_MSG)}">Copy it</button></div>
     </section>
-    <section class="panel"><h2>Breathe</h2><p style="color:var(--smog)">Thirty seconds. In for four, out for six.</p><button class="btn palm wide" data-act="breathe">🫁 Breathe with me</button></section>
+    <section class="panel"><h2>Recharge</h2>${batteryCard()}
+      <button class="btn palm wide" data-act="rest"${lastRest() + REST_COOLDOWN > Date.now() ? ' disabled' : ''}>${lastRest() + REST_COOLDOWN > Date.now() ? `🛌 Rested. Next breather in ${Math.ceil((lastRest() + REST_COOLDOWN - Date.now()) / 60000)} min` : `🛌 I took a breather (+${REST_AMOUNT}%)`}</button>
+      <button class="btn wide" data-act="breathe">🫁 Breathe with me (30 seconds)</button></section>
     <section class="panel">
       <h2>More than a hard day?</h2>
       <div class="lines">
@@ -1187,7 +1291,11 @@ function homieSheet(id){
   const hist = h.log.filter(l => l.hit).slice(0, 12).reverse();
   openSheet(`
     <div class="sh-head">${tok(h, 64)}<div class="grow"><h2>${esc(h.name)}</h2><div class="row" style="gap:6px">${stChip(h)}${crewTag(crewOf(h))}</div></div>${xBtn}</div>
-    <p class="pattern" style="--sc:${s.color}">${patternLine(h)}${trend ? `<span class="trend">${trend}</span>` : ''}</p>
+    <p class="pattern" style="--sc:${s.color}">${patternLine(h)}${trend && !h.toxic ? `<span class="trend">${trend}</span>` : ''}</p>
+    ${h.toxic ? `<div class="toxic-banner"><b>☢️ Toxic. That's done.</b> ${esc(first(h))} stays in the Hood and keeps spreading radiation. Contact drains your battery an extra ${-TOXIC_DRAIN}%. Only a Peak battery can handle them.</div>`
+      : a.status === 'watch' ? `<div class="risk"><div class="risk-top"><span>☢️ Toxic risk</span><span>${Math.round(a.risk * 100)}%</span></div><div class="risk-bar"><i style="width:${Math.max(4, Math.round(a.risk * 100))}%"></i></div><p>${a.toToxic === 1 ? '<b>One more bad hit</b> and they go Toxic for good.' : `<b>${a.toToxic} more bad hits</b> and they go Toxic for good.`} Good interactions bring the risk down and can get them out of Watch This Fool.</p></div>`
+      : a.toToxic && a.toToxic <= 2 ? `<div class="risk"><div class="risk-top"><span>☢️ Toxic risk</span><span>Close</span></div><p><b>${a.toToxic} bad ${a.toToxic === 1 ? 'hit' : 'hits'}</b> away from Toxic for good.</p></div>` : ''}
+    <div class="range"><span>${RANGE.has(h.id) ? `✅ In range on your ${BAT.band.label} battery` : h.silent ? '🔇 Radio silence' : `🪫 Too much for a ${BAT.band.label} battery`}</span><button class="chip" data-act="lowbat" data-id="${esc(h.id)}" aria-pressed="${onLowList(h)}" title="On a low battery, only people on this list are in range">${onLowList(h) ? '✓ ' : '＋ '}Low-battery list</button></div>
     <div class="stat3">
       <div><small>Heat</small><b>${a.stars ? starsHTML(a.stars) : '<span style="color:var(--dim)">None</span>'}</b></div>
       <div><small>Respect</small><b class="resp">${a.respect}</b></div>
@@ -1234,7 +1342,8 @@ function hitSheet(id, kind){
   openSheet(`
     <div class="sh-head">${tok(h, 48)}<div class="grow"><p class="kicker">${esc(h.name)}</p><div class="row" style="gap:6px" role="radiogroup" aria-label="How you were in touch">${Object.entries(KINDS).map(([k, K]) => `<button class="chip" role="radio" aria-checked="${k === kind}" data-act="kind" data-v="${k}">${K.emoji} ${K.label}</button>`).join('')}</div></div>${xBtn}</div>
     <h2 class="big-q">How did that <em>hit?</em></h2>
-    <div class="hits">${HIT_ORDER.map(k => `<button class="hitb" style="--hc:${HITS[k].color}" data-act="hit" data-id="${esc(h.id)}" data-v="${k}"${k === 'good' ? ' data-autofocus' : ''}><span>${HITS[k].emoji}</span>${HITS[k].label}</button>`).join('')}</div>
+    ${h.toxic ? `<p class="toxic-banner" style="margin:0 0 12px">☢️ <b>Toxic.</b> This contact costs an extra ${-TOXIC_DRAIN}% battery.</p>` : !RANGE.has(h.id) ? `<p class="fine" style="margin:0 0 12px;text-align:center">🪫 Heads up: ${esc(first(h))} is outside what a ${BAT.band.label} battery can handle. Go easy on yourself.</p>` : ''}
+    <div class="hits">${HIT_ORDER.map(k => { const d = HIT_BAT[k] + (h.toxic ? TOXIC_DRAIN : 0); return `<button class="hitb" style="--hc:${HITS[k].color}" data-act="hit" data-id="${esc(h.id)}" data-v="${k}"${k === 'good' ? ' data-autofocus' : ''}><span>${HITS[k].emoji}</span>${HITS[k].label}<small>🔋${d > 0 ? '+' : ''}${d}%</small></button>`; }).join('')}</div>
     <div class="sec" style="margin-top:14px">
       <p class="kicker">Add a receipt? (optional, before you tap)</p>
       <div class="chips">${[...RECEIPTS.good, ...RECEIPTS.bad].map(r => `<button class="chip" data-act="pre-receipt" data-v="${esc(r)}" aria-pressed="false">${esc(r)}</button>`).join('')}</div>
@@ -1265,7 +1374,7 @@ function silenceSheet(id){
     <button class="btn wide" data-act="silence-yes" data-id="${esc(h.id)}" data-autofocus>🔇 Go radio silent</button>`, `Radio silence with ${h.name}`);
 }
 function crewChips(selected, act){ return data.crews.map(c => `<button type="button" class="chip" style="--cc:${c.color}" role="radio" aria-checked="${c.id === selected}" data-act="${act}" data-v="${esc(c.id)}">${esc(c.emoji)} ${esc(c.name)}</button>`).join(''); }
-const BASES = [[2, '⭐ Golden'], [1, '🔥 Good'], [0, '😐 Neutral'], [-1, '⚠️ Off'], [-2, '☢️ Bad']];
+const BASES = [[2, '⭐ Golden'], [1, '🔥 Good'], [0, '😐 Neutral'], [-1, '⚠️ Off']];
 function addSheet(){
   const crew = data.crews.some(c => c.id === prefs.lastCrew) ? prefs.lastCrew : (data.crews.find(c => c.id === 'c_old') || data.crews[0]).id;
   openSheet(`
@@ -1290,6 +1399,9 @@ function editSheet(id){
       <div class="group"><span class="kicker">Map icon</span><div class="emoji-grid">${EMOJIS.map(e => `<button type="button" data-act="set-emoji" data-v="${e}" aria-pressed="${e === h.emoji}" aria-label="${e}">${e}</button>`).join('')}</div></div>
       <input type="hidden" name="crewId" value="${esc(h.crewId)}"><input type="hidden" name="base" value="${h.base}"><input type="hidden" name="emoji" value="${esc(h.emoji)}">
       <button class="btn gold wide" type="submit">Save</button>
+      <div id="tox-zone">${h.toxic
+        ? `<p class="fine" style="margin-bottom:8px">☢️ Toxic is for good. Only clear it if it was a mis-tap.</p><button class="btn small" type="button" data-act="clear-toxic" data-id="${esc(h.id)}">It was a mistake, clear Toxic</button>`
+        : `<button class="btn haz small" type="button" data-act="mark-toxic" data-id="${esc(h.id)}">☢️ Mark as Toxic</button>`}</div>
       <div id="del-zone"><button class="btn danger small" type="button" data-act="delete" data-id="${esc(h.id)}">Remove from the Hood</button></div>
     </form>`, `Edit ${h.name}`);
 }
@@ -1317,7 +1429,8 @@ function menuSheet(){
     </div>
     <div class="sec">
       <p class="kicker">How it reads</p>
-      <p class="fine" style="color:var(--smog)">Closer to you means more active in your life right now. People drift out when you're not in touch, which isn't a bad thing. Status comes from how your recent time together hit: one bad hit means <b>On Watch</b>, only a repeated pattern means <b>Toxic</b>, and it all moves back as things improve. A gold aura is good energy, ☢️ radiation is repeated bad hits, and ★ stars are heat (how much headspace it's taking). Respect is positive history. Nobody is permanently labelled.</p>
+      <p class="fine" style="color:var(--smog)">Closer to you means more active in your life right now. People drift out when you're not in touch, which isn't a bad thing. Status comes from how your recent time together hit: one bad hit puts someone on <b>Watch This Fool</b>, and good interactions can get them out again. A repeated pattern of bad hits makes them <b>Toxic</b>, and Toxic is for good. A gold aura is good energy, ☢️ radiation spreads from toxic and bad hits, and ★ stars are heat (how much headspace it's taking). Respect is positive history.</p>
+      <p class="fine" style="color:var(--smog);margin-top:8px">🔋 <b>Social battery</b> decides who's in range today. Low: your low-battery list (good people by default). Medium: + neutral. High: + Watch This Fool. Peak: + Toxic. Good hits recharge you, bad ones drain you, and toxic contact drains an extra ${-TOXIC_DRAIN}%.</p>
     </div>
     <div class="sec">
       <div class="row" style="justify-content:space-between"><span>Sound</span><button class="btn small" data-act="sound">${prefs.sound ? '🔊 On' : '🔇 Off'}</button></div>
@@ -1338,11 +1451,52 @@ function missionSheet(){
     </form>`, 'New mission');
 }
 
+function batterySheet(keepScroll){
+  const sh = $('#sheet'), top = keepScroll ? sh.scrollTop : 0;
+  const wait = lastRest() + REST_COOLDOWN - Date.now();
+  const people = data.homies.filter(h => !h.silent).sort((a, b) => STATUS_ORDER.indexOf(A.get(b.id).status) - STATUS_ORDER.indexOf(A.get(a.id).status) || a.name.localeCompare(b.name));
+  openSheet(`
+    <div class="sh-head"><div class="grow"><p class="kicker">Social battery</p><h2>${BAT.checked ? `${BAT.level}% · ${BAT.band.label}` : 'Check in'}</h2></div>${xBtn}</div>
+    ${checkinHTML()}
+    <div class="sec" style="margin-top:12px">
+      <button class="btn palm wide" data-act="rest"${wait > 0 ? ' disabled' : ''}>${wait > 0 ? `🛌 Next breather in ${Math.ceil(wait / 60000)} min` : `🛌 I took a breather (+${REST_AMOUNT}%)`}</button>
+      <p class="fine">Good hits recharge you (⭐ +${HIT_BAT.golden}%, 🔥 +${HIT_BAT.good}%). Bad ones drain you (⚠️ ${HIT_BAT.off}%, ☢️ ${HIT_BAT.bad}%). Any contact with a toxic homie costs an extra ${-TOXIC_DRAIN}%.</p>
+    </div>
+    <div class="sec">
+      <p class="kicker">Low-battery list</p>
+      <p class="fine" style="color:var(--smog)">On a Low battery, only these people are in range. Good people are on it by default. Tap to add or take anyone off.</p>
+      <div class="chips">${people.map(h => `<button class="chip" style="--cc:${STATUS[A.get(h.id).status].hex}" data-act="lowbat-pick" data-id="${esc(h.id)}" aria-pressed="${onLowList(h)}"><span>${onLowList(h) ? '✓ ' : ''}</span>${esc(h.emoji)} ${esc(first(h))}</button>`).join('') || '<span class="fine">Add homies first.</span>'}</div>
+    </div>
+    <div class="sec">
+      <p class="kicker">Who each battery can handle</p>
+      ${BANDS.map(b => `<p style="margin:0;display:flex;gap:10px"><b style="color:${b.color};min-width:6.5em;font-family:var(--font-hud);letter-spacing:.08em;text-transform:uppercase">${b.icon} ${b.label}</b><span style="color:var(--smog)">${b.key === 'low' ? 'Your low-battery list' : b.key === 'medium' ? '+ Neutral homies' : b.key === 'high' ? '+ Watch This Fool' : '+ Toxic homies'}</span></p>`).join('')}
+    </div>`, 'Social battery');
+  if (keepScroll) sh.scrollTop = top;
+}
+function checkIn(level){
+  const before = BAT.band.key;
+  data.battery = {date: dayKey(), level, at: Date.now()};
+  save(); closeSheet(); renderAll();
+  Sound.play(level >= 75 ? 'golden' : 'tap'); vibrate(15);
+  const out = data.homies.filter(h => !RANGE.has(h.id) && !h.silent).length;
+  toast(`${BAT.band.icon} ${BAT.band.label} battery.${out ? ` ${out} ${out === 1 ? 'homie is' : 'homies are'} out of range today.` : " You can handle everyone today."}`);
+  if (before !== BAT.band.key) Hood.kick();
+}
+function rest(){
+  if (lastRest() + REST_COOLDOWN > Date.now()) return;
+  data.rests.push({id: uid('r'), at: Date.now(), amt: REST_AMOUNT});
+  data.rests = data.rests.slice(-200);
+  save(); closeSheet(); renderAll();
+  Sound.play('calm'); vibrate(20);
+  popup(`🔋 +${REST_AMOUNT}%`, 'var(--cash)');
+  toast(`Breather logged. Battery's ${BAT.level}% 🛌`);
+}
+
 /* ---------- the lucky wheel (a button, not the main thing) ---------- */
 const Wheel = (() => {
   let cv, ctx, box, pointer, S = 0, dpr = 1, segs = [], rot = 0, flash = -1, spinning = false;
   const weight = h => { const a = A.get(h.id), d = a.last ? Math.min(60, daysBetween(a.last.at, Date.now())) : 30; return (1 + d / 5) * ({golden: 2, dope: 1.6}[a.status] || 1); };
-  const eligible = () => data.homies.filter(h => !away(h) && !['watch', 'toxic'].includes(A.get(h.id).status));
+  const eligible = () => data.homies.filter(h => !away(h) && RANGE.has(h.id) && !['watch', 'toxic'].includes(A.get(h.id).status));
   function mount(){
     box = $('#wheel-box'); cv = $('#wheel'); if (!cv) return;
     ctx = cv.getContext('2d'); pointer = $('#pointer');
@@ -1404,7 +1558,7 @@ function wheelSheet(){
   const n = Wheel.eligible().length;
   openSheet(`
     <div class="sh-head"><div class="grow"><p class="kicker">Lucky wheel</p><h2>Spin for a mission</h2></div>${xBtn}</div>
-    ${n < 2 ? `<p style="color:var(--smog)">You need at least 2 homies who aren't on watch, toxic or taking space to spin.</p>` : `
+    ${n < 2 ? `<p style="color:var(--smog)">You need at least 2 homies in range on your battery (not Watch This Fool, Toxic or taking space) to spin.</p>` : `
     <div class="wheel-box" id="wheel-box">
       <svg class="pointer" id="pointer" viewBox="0 0 40 46" aria-hidden="true"><path d="M4 4h32L20 42z" fill="#ffd166" stroke="#1f1236" stroke-width="4" stroke-linejoin="round"/><circle cx="20" cy="13" r="4" fill="#fff6c9"/></svg>
       <canvas id="wheel" role="img" aria-label="Lucky wheel of your homies"></canvas>
@@ -1430,8 +1584,8 @@ function doSpin(){
 /* ---------- the big moments ---------- */
 function logInteraction(id, kind, hit){
   const h = byId(id); if (!h || !KINDS[kind]) return;
-  const before = A.get(h.id), respBefore = playerRespect();
-  const entry = {id: uid('l'), at: Date.now(), kind, hit: hit || null};
+  const before = A.get(h.id), respBefore = playerRespect(), batBefore = BAT;
+  const entry = {id: uid('l'), at: Date.now(), kind, hit: hit || null, tox: !!h.toxic};
   h.log.unshift(entry);
   const receipts = [...pendingReceipts].map(text => ({id: uid('r'), at: Date.now(), text, tone: RECEIPTS.good.includes(text) ? 1 : RECEIPTS.bad.includes(text) ? -1 : 0}));
   h.receipts.unshift(...receipts);
@@ -1445,8 +1599,11 @@ function logInteraction(id, kind, hit){
   if (hit) Sound.play(hit);
   vibrate(hit === 'bad' ? [120, 60, 120] : hit === 'golden' ? [30, 30, 60] : 20);
   if (hit === 'golden') Confetti.burst(30, {gold: true});
-  if (gained > 0) popup(`Respect +${gained}`, 'var(--gold)');
-  else if (after.stars > before.stars) popup(`Heat ${'★'.repeat(after.stars)}`, '#fff');
+  const batD = BAT.level - batBefore.level, batTxt = batD ? ` · 🔋${batD > 0 ? '+' : ''}${batD}%` : '';
+  if (gained > 0) popup(`Respect +${gained}${batTxt}`, 'var(--gold)');
+  else if (after.stars > before.stars) popup(`Heat ${'★'.repeat(after.stars)}${batTxt}`, '#fff');
+  else if (batD) popup(`🔋 ${batD > 0 ? '+' : ''}${batD}%`, batD > 0 ? 'var(--cash)' : '#ff9b3d');
+  if (BAT.band.key !== batBefore.band.key && BAT.checked) setTimeout(() => popup(`${BAT.band.icon} ${BAT.band.label} battery now`, BAT.band.color), 1300);
   for (const m of passed) Win.push({type: 'mission', mission: m});
   if (after.status !== before.status) Win.push({type: 'status', id: h.id, from: before.status, to: after.status});
   if (after.stars >= 3 && after.stars > before.stars) Win.push({type: 'heat', id: h.id});
@@ -1455,6 +1612,7 @@ function logInteraction(id, kind, hit){
     g.log = g.log.filter(l => l.id !== entry.id);
     const rids = new Set(receipts.map(r => r.id)); g.receipts = g.receipts.filter(r => !rids.has(r.id));
     for (const m of data.missions) if (m.doneBy === entry.id){ m.done = 0; m.doneBy = null; }
+    if (g.toxic && g.toxic.by === entry.id) g.toxic = null; // the hit that made them Toxic is gone, so is the lock
     save(); renderAll();
   };
   const msg = KINDS[kind].did.replace('{n}', first(h)) + (hit ? ' · ' + HITS[hit].emoji : '');
@@ -1511,10 +1669,10 @@ const Win = {
     } else if (item.type === 'status'){
       const h = byId(item.id); if (!h){ this.next(); return; }
       const to = STATUS[item.to], up = STATUS_ORDER.indexOf(item.to) > STATUS_ORDER.indexOf(item.from);
-      const worse = !up && (item.to === 'watch' || item.to === 'toxic');
+      const worse = !up && (item.to === 'watch' || item.to === 'toxic'), toxic = item.to === 'toxic';
       el.className = `win${worse ? ' bars haz' : ''}`;
-      el.innerHTML = `<div class="win-card"><p class="win-kicker" style="--wc:${to.color}">Status update</p>${tok(h, 84)}<h2 class="win-stamp" style="font-size:clamp(42px,13vw,72px)">${to.emoji} ${to.label}</h2><p class="win-sub">${esc(h.name)} ${up ? 'moved up' : 'moved down'} from ${STATUS[item.from].label}</p><p class="win-text">${patternLine(h)}${worse ? ' <strong>Nothing is permanent.</strong> You can lay low, go radio silent, or just watch.' : ''}</p>
-        <div class="row">${worse ? `<button class="btn small" data-act="win-laylow" data-id="${esc(h.id)}">🌙 Lay low</button>` : ''}<button class="btn ${worse ? '' : 'gold'}" data-act="collect">Got it</button></div></div>${tap}`;
+      el.innerHTML = `<div class="win-card"><p class="win-kicker" style="--wc:${to.color}">${toxic ? 'For good' : 'Status update'}</p>${tok(h, 84)}<h2 class="win-stamp" style="font-size:clamp(42px,13vw,72px)">${to.emoji} ${to.label}</h2><p class="win-sub">${esc(h.name)} ${up ? (item.from === 'watch' ? 'got out of Watch This Fool' : 'moved up') : 'moved down'}${item.from === 'watch' && up ? '' : ` from ${STATUS[item.from].label}`}</p><p class="win-text">${patternLine(h)}${toxic ? ` <strong>They'll keep spreading radiation, and only a Peak battery can handle them.</strong>` : item.to === 'watch' && !up ? ` <strong>Good interactions bring the toxic risk down.</strong>` : ''}</p>
+        <div class="row">${toxic ? `<button class="btn small" data-act="win-silence" data-id="${esc(h.id)}">🔇 Radio silence</button>` : worse ? `<button class="btn small" data-act="win-laylow" data-id="${esc(h.id)}">🌙 Lay low</button>` : ''}<button class="btn ${worse ? '' : 'gold'}" data-act="collect">Got it</button></div></div>${tap}`;
       Sound.play(worse ? 'off' : 'status');
       if (item.to === 'golden') Confetti.burst(80, {gold: true});
     } else if (item.type === 'heat'){
@@ -1657,6 +1815,7 @@ document.addEventListener('click', e => {
     if (act === 'breathe'){ Win.queue.unshift({type: 'breathe'}); Win.next(); return; }
     if (act === 'win-laylow'){ const h = byId(b.dataset.id); Win.next(); if (h) setLayLow(h, 1); return; }
     if (act === 'win-bail'){ const id = b.dataset.id; Win.queue = []; Win.next(); bail(id); return; }
+    if (act === 'win-silence'){ const h = byId(b.dataset.id); Win.next(); if (h) setSilent(h, true); return; }
     if (act === 'win-noreply'){
       const h = byId(b.dataset.id);
       if (h && !data.missions.some(m => !m.done && !m.skipped && m.type === 'noreply' && m.homieId === h.id)){ data.missions.push(newMission('noreply', h.id, `Don't reply to ${first(h)} tonight`)); save(); renderAll(); }
@@ -1699,6 +1858,14 @@ document.addEventListener('click', e => {
     case 'end-laylow': if (h){ h.layLowUntil = 0; save(); closeSheet(); renderAll(); toast(`${first(h)} is back in the Hood.`); } break;
     case 'silence': silenceSheet(id); break;
     case 'silence-yes': if (h) setSilent(h, true); break;
+    case 'battery': Sound.play('tap'); batterySheet(); break;
+    case 'checkin': checkIn(+v); break;
+    case 'rest': rest(); break;
+    case 'lowbat': if (h){ h.lowBat = !onLowList(h); save(); renderAll(); if ($('#sheet [data-act="lowbat-pick"]')) batterySheet(true); else reopenHomie(h.id); Sound.play('tap'); } break;
+    case 'lowbat-pick': if (h){ h.lowBat = !onLowList(h); save(); renderAll(); t.setAttribute('aria-pressed', String(onLowList(h))); t.firstChild.textContent = onLowList(h) ? '✓ ' : ''; Sound.play('tap'); } break;
+    case 'mark-toxic': $('#tox-zone').innerHTML = `<p class="fine" style="margin-bottom:8px">Mark ${esc(first(h))} as Toxic for good? They'll spread radiation and only a Peak battery can handle them.</p><div class="row"><button class="btn haz small" type="button" data-act="mark-toxic-yes" data-id="${esc(id)}">☢️ Yes, Toxic</button><button class="btn ghost small" type="button" data-act="close-sheet">Not now</button></div>`; break;
+    case 'mark-toxic-yes': if (h){ const was = A.get(h.id).status; h.toxic = {at: Date.now(), by: 'manual'}; save(); closeSheet(); renderAll(); Sound.play('bad'); Win.push({type: 'status', id: h.id, from: was === 'toxic' ? 'watch' : was, to: 'toxic'}); } break;
+    case 'clear-toxic': if (h){ h.toxic = null; h.base = Math.max(h.base, -1); save(); renderAll(); editSheet(h.id); toast(`Toxic cleared for ${first(h)}.`); } break;
     case 'edit': editSheet(id); break;
     case 'delete': $('#del-zone').innerHTML = `<p class="fine" style="margin-bottom:8px">Remove ${esc(first(h))} and their history? You keep the respect.</p><div class="row"><button class="btn danger small" type="button" data-act="delete-yes" data-id="${esc(id)}">Yes, remove</button><button class="btn ghost small" type="button" data-act="close-sheet">Keep them</button></div>`; break;
     case 'delete-yes': removeHomie(id); break;

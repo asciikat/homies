@@ -34,14 +34,36 @@ After you're in touch with someone, it's one tap: **⭐ Golden · 🔥 Good ·
 again", "Had my back"…), or skip the rating.
 
 Status comes from the **pattern**, weighted towards recent hits:
-**Golden → Super Dope → Neutral → On Watch → Toxic**, in both directions.
+**Golden → Super Dope → Neutral → Watch This Fool → Toxic**.
 
-- One bad hit makes someone On Watch. Only a repeated pattern makes them Toxic.
-- Things improve and they move back.
+- One bad hit puts someone on **⚠️ Watch This Fool**. Their sheet shows a
+  **☢️ toxic-risk meter**, along the lines of "2 more bad hits and they go Toxic
+  for good". Good interactions bring the risk down and can get them out of
+  Watch This Fool.
+- A repeated pattern of bad hits makes them **☢️ Toxic, and Toxic is for good.**
+  They stay in the Hood, keep spreading radiation, and drain an extra 10%
+  battery whenever you're in contact. You can also mark someone Toxic yourself
+  (✏️ Edit). Undo right after a hit takes it back, and Edit can clear a
+  mis-tap.
 - You can give someone a starting vibe, and your hits take over from there.
 
-The app never says "Dave is Toxic". It says "Recent interactions with Dave have
-repeatedly left you feeling worse."
+## 🔋 Social battery
+
+Check in each day: **Low, Medium, High or Peak**. Your battery decides who you
+can handle today:
+
+| Battery | Who's in range |
+|---|---|
+| 🪫 Low | Your **low-battery list**. Golden and Super Dope people are on it by default, and you choose who else is on or off it |
+| 🔋 Medium | + Neutral homies |
+| 🔋 High | + Watch This Fool |
+| ⚡ Peak | + Toxic homies |
+
+People out of range fade on the map with a 🪫. They stay out of the wheel and
+out of new missions, and their existing missions wait for a better battery day.
+Every hit moves the battery: ⭐ +10%, 🔥 +4%, 😐 −4%, ⚠️ −10%, ☢️ −18%, plus
+−10% for any contact with a toxic homie. 🛌 A breather adds 15% (once an hour).
+Under 15%, the app points you to the Safehouse.
 
 ## Quick actions (tap any Homie)
 
@@ -62,8 +84,9 @@ Each Homie also shows **Heat**, **Respect** (positive history), **last seen**
 
 ## Hood Pulse and missions
 
-**Hood Pulse** at the top: counts of Golden, Super Dope, Drifting, On Watch,
-Toxic, Building Heat, Laying Low and Radio Silence, plus one plain sentence. Tap
+**Hood Pulse** at the top: your battery, then counts of Golden, Super Dope,
+Drifting, Watch This Fool, Toxic, Building Heat, Out of Range, Laying Low and
+Radio Silence, plus one plain sentence. Tap
 any count to highlight those Homies on the map.
 
 **Missions** show up each day ("Catch up with Sam", "Call Mum", "Check in with
