@@ -113,7 +113,7 @@ a { color: var(--palm); }
 .toxic-banner b { color: var(--s-toxic); }
 /* the stash jar */
 .stash-row { display: grid; grid-template-columns: minmax(120px, 44%) minmax(0, 1fr); gap: 14px; align-items: center; }
-#jar { width: 100%; aspect-ratio: 200 / 250; display: block; cursor: pointer; }
+#jar { width: 100%; aspect-ratio: 200 / 250; display: block; }
 .stash-info { display: grid; gap: 8px; }
 .stash-n { margin: 0; font: 900 44px/.9 var(--font-display); color: var(--gold); }
 .stash-n small { display: block; font: 800 12px/1.2 var(--font-hud); letter-spacing: .16em; text-transform: uppercase; color: var(--smog); }
@@ -206,7 +206,10 @@ main, .safehouse { max-width: 560px; margin: 0 auto; padding: 12px 14px calc(env
 .map-empty { position: absolute; left: 50%; top: 58%; transform: translateX(-50%); width: min(300px, 80%); text-align: center; padding: 14px; border-radius: 14px; background: rgba(13, 10, 20, .9); border: 1px solid var(--line-2); display: grid; gap: 10px; justify-items: center; }
 .map-empty p { margin: 0; }
 .map-key { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; font: 700 13px/1 var(--font-hud); letter-spacing: .06em; color: var(--smog); }
-.actions3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.actions3 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.stash-btn { position: relative; }
+.stash-btn em { position: absolute; top: 5px; right: 6px; min-width: 22px; padding: 3px 5px; border-radius: 999px; background: var(--gold); color: #3d2300; font: 900 13px/1 var(--font-display); font-style: normal; letter-spacing: 0; }
+.stash-btn.bump { animation: bump .5s var(--snap); }
 .act3 { display: grid; justify-items: center; gap: 4px; min-height: 70px; padding: 8px 4px; border-radius: 14px; border: 2px solid var(--line-2); background: rgba(255, 255, 255, .04); font: 800 14px/1 var(--font-hud); letter-spacing: .1em; text-transform: uppercase; }
 .act3 span { font-size: 26px; line-height: 1; }
 .act3:active { transform: translateY(2px); }
@@ -380,16 +383,9 @@ main, .safehouse { max-width: 560px; margin: 0 auto; padding: 12px 14px calc(env
     <div class="actions3">
       <button class="act3" data-act="add"><span>➕</span>Homie</button>
       <button class="act3" data-act="wheel"><span>🎰</span>Spin</button>
+      <button class="act3 stash-btn" id="stash-btn" data-act="stash" aria-label="Your stash"><span>🫙</span>Stash<em id="stash-count">0</em></button>
       <button class="act3 bail" data-act="bail"><span>🚨</span>Bail</button>
     </div>
-  </section>
-  <section class="panel" id="stash" aria-labelledby="stash-h">
-    <h2 id="stash-h">The stash <span id="stash-sub"></span></h2>
-    <div class="stash-row">
-      <canvas id="jar" role="img" aria-label="Your stash jar"></canvas>
-      <div class="stash-info" id="stash-info"></div>
-    </div>
-    <div class="loot-key" id="loot-key"></div>
   </section>
   <section class="panel" id="missions" aria-label="Missions"></section>
   <section class="panel" id="homies" aria-label="Your homies"></section>
@@ -1206,10 +1202,10 @@ const Hood = (() => {
 
 /* ---------- the stash jar ---------- */
 const Jar = (() => {
-  const cv = $('#jar'), ctx = cv.getContext('2d');
+  let cv = null, ctx = null;
   const paths = Object.fromEntries(Object.entries(LOOT).map(([k, L]) => [k, {body: new Path2D(L.path), detail: new Path2D(L.detail)}]));
   const body = new Path2D('M60 46 L60 56 Q20 64 20 96 L20 230 Q20 246 36 246 L164 246 Q180 246 180 230 L180 96 Q180 64 140 56 L140 46 Z');
-  let lastNewest = null, anim = null, raf = 0;
+  let anim = null, raf = 0;
   function drawItem(it, y){
     const s = it.r * 2 / 24, L = LOOT[it.kind];
     ctx.save(); ctx.translate(it.x, y); ctx.rotate(it.rot); ctx.scale(s, s); ctx.translate(-12, -12);
@@ -1220,6 +1216,7 @@ const Jar = (() => {
     if (it.gold){ ctx.fillStyle = '#fff'; ctx.font = `${Math.round(it.r * .8)}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('✦', it.x + it.r * .7, y - it.r * .7); }
   }
   function draw(now){
+    if (!cv || !cv.isConnected) return;
     const W = cv.clientWidth; if (!W) return;
     const dpr = Math.min(2, devicePixelRatio || 1), H = W * 1.25;
     if (cv.width !== Math.round(W * dpr)){ cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
@@ -1246,14 +1243,16 @@ const Jar = (() => {
     if (!jar.length){ ctx.fillStyle = 'rgba(236,222,255,.35)'; ctx.font = '800 15px "Barlow Condensed", sans-serif'; ctx.textAlign = 'center'; ctx.fillText('EMPTY JAR', 100, 150); }
   }
   function frame(now){ raf = 0; draw(now); if (anim && now - anim.t0 < 800) raf = requestAnimationFrame(frame); else anim = null; }
-  function render(){
+  addEventListener('resize', () => { if (cv && cv.isConnected && !raf) raf = requestAnimationFrame(frame); });
+  // draw the jar in the open stash sheet; drop the newest piece in if it's new since you last looked
+  function show(dropNewest){
+    cv = $('#jar'); if (!cv) return;
+    ctx = cv.getContext('2d');
     const jar = STASH.jars[STASH.jars.length - 1], newest = jar.length ? jar[jar.length - 1].id : null;
-    if (lastNewest !== null && newest && newest !== lastNewest && !reduceMotion.matches) anim = {id: newest, t0: performance.now()};
-    lastNewest = newest || '';
+    anim = dropNewest && newest && !reduceMotion.matches ? {id: newest, t0: performance.now() + 250} : null;
     cancelAnimationFrame(raf); raf = requestAnimationFrame(frame);
   }
-  new ResizeObserver(() => { if (!raf) raf = requestAnimationFrame(frame); }).observe(cv);
-  return {render};
+  return {show};
 })();
 
 /* ---------- render ---------- */
@@ -1270,15 +1269,26 @@ function renderAll(){
   renderSafehouse();
 }
 function renderStash(){
+  $('#stash-count').textContent = STASH.total;
+  $('#stash-btn').setAttribute('aria-label', `Your stash: ${STASH.total} pieces of loot`);
+}
+function stashSheet(){
   const c = STASH.counts, jar = STASH.jars[STASH.jars.length - 1];
-  $('#stash-sub').textContent = STASH.full ? `🫙 ${STASH.full} full ${STASH.full === 1 ? 'jar' : 'jars'} stashed` : '';
-  $('#stash-info').innerHTML = `
-    <p class="stash-n">${STASH.total}<small>${STASH.total === 1 ? 'piece of loot' : 'pieces of loot'}${STASH.week ? ` · +${STASH.week} this week` : ''}</small></p>
-    <div class="loot-counts">${[...LOOT_ORDER].reverse().map(k => `<span>${lootSVG(k, 22)} ${c[k]}</span>`).join('')}</div>
-    <p class="fine">${STASH.total ? `Jar ${STASH.full + 1}: ${jar.length} in. Fill it for Respect +${JAR_RESPECT}.` : 'Every time you\'re in touch with your people, loot drops in. Bigger ways of being in touch, bigger loot. The jar only fills.'}</p>`;
-  $('#loot-key').innerHTML = LOOT_ORDER.map(k => `<span>${lootSVG(k, 18)} ${KINDS[k].label}</span>`).join('');
-  $('#jar').setAttribute('aria-label', `Your stash jar: ${STASH.total} pieces of loot. ${c.saw} diamonds, ${c.call} gold bars, ${c.text} cash stacks, ${c.online} coins.`);
-  Jar.render();
+  const fresh = STASH.total > (prefs.stashSeen || 0);
+  prefs.stashSeen = STASH.total; savePrefs();
+  openSheet(`
+    <div class="sh-head"><div class="grow"><p class="kicker">${STASH.full ? `🫙 ${STASH.full} full ${STASH.full === 1 ? 'jar' : 'jars'} stashed` : 'Your loot'}</p><h2>The stash</h2></div>${xBtn}</div>
+    <div class="stash-row">
+      <canvas id="jar" role="img" aria-label="Your stash jar: ${STASH.total} pieces of loot. ${c.saw} diamonds, ${c.call} gold bars, ${c.text} cash stacks, ${c.online} coins."></canvas>
+      <div class="stash-info">
+        <p class="stash-n">${STASH.total}<small>${STASH.total === 1 ? 'piece of loot' : 'pieces of loot'}${STASH.week ? ` · +${STASH.week} this week` : ''}</small></p>
+        <div class="loot-counts">${[...LOOT_ORDER].reverse().map(k => `<span>${lootSVG(k, 22)} ${c[k]}</span>`).join('')}</div>
+        <p class="fine">${STASH.total ? `Jar ${STASH.full + 1}: ${jar.length} in. Fill it for Respect +${JAR_RESPECT}.` : "Every time you're in touch with your people, loot drops in."}</p>
+      </div>
+    </div>
+    <div class="loot-key" style="margin-top:12px">${LOOT_ORDER.map(k => `<span>${lootSVG(k, 18)} ${KINDS[k].label}</span>`).join('')}</div>
+    <p class="fine" style="margin-top:10px;text-align:center">Bigger ways of being in touch drop bigger loot. Toxic contact drops nothing. The jar only fills.</p>`, 'The stash');
+  requestAnimationFrame(() => Jar.show(fresh));
 }
 let respectAnim = 0;
 const cells = (n, of = 10) => `<div class="cells" aria-hidden="true">${Array.from({length: of}, (_, i) => `<i${i < n ? ' class="on"' : ''}></i>`).join('')}</div>`;
@@ -1864,7 +1874,7 @@ function logInteraction(id, kind, hit, {need = null} = {}){
   if (gained > 0) popup(`Respect +${gained}${batTxt}`, 'var(--gold)');
   else if (after.stars > before.stars) popup(`Heat ${'★'.repeat(after.stars)}${batTxt}`, '#fff');
   else if (batD) popup(`🔋 ${batD > 0 ? '+' : ''}${batD}%`, batD > 0 ? 'var(--cash)' : '#ff9b3d');
-  if (isLoot(entry)) setTimeout(() => popup(`+1 ${LOOT[kind].label}`, LOOT[kind].fill), 950);
+  if (isLoot(entry)) setTimeout(() => { popup(`+1 ${LOOT[kind].label}`, LOOT[kind].fill); const sb = $('#stash-btn'); sb.classList.remove('bump'); void sb.offsetWidth; sb.classList.add('bump'); }, 950);
   if (BAT.band.key !== batBefore.band.key && BAT.checked) setTimeout(() => popup(`${BAT.band.icon} ${BAT.band.label} battery now`, BAT.band.color), 1900);
   if (STASH.full > jarsBefore) Win.push({type: 'jar', n: STASH.full});
   if (entry.tox) Win.push({type: 'cloud', id: h.id, before: before.cloud, after: after.cloud, calm: after.calm, hit, need: entry.need});
@@ -2117,6 +2127,7 @@ document.addEventListener('click', e => {
     case 'menu': Sound.play('tap'); menuSheet(); break;
     case 'safehouse': setSafehouse(!prefs.safehouse); break;
     case 'wheel': Sound.play('tap'); wheelSheet(); break;
+    case 'stash': Sound.play('tap'); stashSheet(); break;
     case 'spin': doSpin(); break;
     case 'bail': bail(id); break;
     case 'breathe': Win.push({type: 'breathe'}); break;

@@ -130,8 +130,9 @@ Each Homie also shows **Heat**, **Respect** (positive history), **last seen**
 
 ## 🫙 The stash
 
-Every time you're in touch with your people, loot drops into your stash jar,
-and bigger ways of being in touch drop bigger loot:
+Tap **🫙 Stash** under the map to open your jar (the badge shows your loot
+count). Every time you're in touch with your people, loot drops in, and bigger
+ways of being in touch drop bigger loot:
 
 | How you were in touch | Loot |
 |---|---|
