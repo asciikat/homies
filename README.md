@@ -130,10 +130,10 @@ Each Homie also shows **Heat**, **Respect** (positive history), **last seen**
 
 ## 🫙 The stash
 
-Every time you connect, loot drops into your stash jar, and bigger moves drop
-bigger loot:
+Every time you're in touch with your people, loot drops into your stash jar,
+and bigger ways of being in touch drop bigger loot:
 
-| How you connected | Loot |
+| How you were in touch | Loot |
 |---|---|
 | 📱 Online | Coin |
 | 💬 Text | Cash stack |
