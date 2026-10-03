@@ -101,6 +101,25 @@ a { color: var(--palm); }
 .risk p { margin: 0; font-size: 14.5px; color: var(--smog); }
 .toxic-banner { margin-top: 10px; padding: 12px 13px; border-radius: 12px; border: 3px solid transparent; background: linear-gradient(#141a08, #141a08) padding-box, var(--stripes) border-box; font-size: 15px; }
 .toxic-banner b { color: var(--s-toxic); }
+/* the stash jar */
+.stash-row { display: grid; grid-template-columns: minmax(120px, 44%) minmax(0, 1fr); gap: 14px; align-items: center; }
+#jar { width: 100%; aspect-ratio: 200 / 250; display: block; cursor: pointer; }
+.stash-info { display: grid; gap: 8px; }
+.stash-n { margin: 0; font: 900 44px/.9 var(--font-display); color: var(--gold); }
+.stash-n small { display: block; font: 800 12px/1.2 var(--font-hud); letter-spacing: .16em; text-transform: uppercase; color: var(--smog); }
+.loot-counts { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.loot-counts span { display: flex; align-items: center; gap: 6px; font: 800 17px/1 var(--font-hud); }
+.loot-counts svg, .loot-key svg, .kt svg { flex: none; }
+.loot-key { display: flex; flex-wrap: wrap; gap: 6px 12px; justify-content: center; font: 700 13px/1 var(--font-hud); letter-spacing: .04em; color: var(--smog); }
+.loot-key span { display: inline-flex; align-items: center; gap: 5px; }
+/* ways of connecting, as big tiles */
+.kind-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-bottom: 14px; }
+.kt { display: grid; justify-items: center; align-content: center; gap: 4px; min-height: 96px; padding: 8px 2px; border-radius: 16px; border: 2px solid var(--line-2); background: rgba(255, 255, 255, .04); text-align: center; }
+.kt .ke { font-size: 30px; line-height: 1; }
+.kt b { font: 800 15px/1 var(--font-hud); letter-spacing: .04em; text-transform: uppercase; }
+.kt .kl { display: flex; align-items: center; gap: 3px; font: 700 11.5px/1.1 var(--font-hud); color: var(--smog); }
+.kt[aria-checked="true"] { border-color: var(--gold); background: rgba(255, 209, 102, .14); box-shadow: 0 0 0 3px rgba(255, 209, 102, .15); }
+.qa .deal { border-color: var(--s-toxic); background: rgba(182, 255, 60, .08); }
 .hitb small { font: 700 11.5px/1 var(--font-hud); letter-spacing: .02em; color: var(--smog); }
 .in-safehouse .icon-btn.house { background: var(--palm); }
 
@@ -344,6 +363,14 @@ main, .safehouse { max-width: 560px; margin: 0 auto; padding: 12px 14px calc(env
       <button class="act3 bail" data-act="bail"><span>🚨</span>Bail</button>
     </div>
   </section>
+  <section class="panel" id="stash" aria-labelledby="stash-h">
+    <h2 id="stash-h">The stash <span id="stash-sub"></span></h2>
+    <div class="stash-row">
+      <canvas id="jar" role="img" aria-label="Your stash jar"></canvas>
+      <div class="stash-info" id="stash-info"></div>
+    </div>
+    <div class="loot-key" id="loot-key"></div>
+  </section>
   <section class="panel" id="missions" aria-label="Missions"></section>
   <section class="panel" id="homies" aria-label="Your homies"></section>
 </main>
@@ -439,6 +466,25 @@ const DEFAULT_CREWS = [
   {id:'c_online',  name:'Online Homies', emoji:'🎮', color:'#9a6bff'},
 ];
 const SEG_COLORS = ['#ff3d7f', '#ffd166', '#2ee6c8', '#9a6bff', '#ff9b3d', '#7cf29a'];
+// Loot that drops into the stash. The bigger the way you connected, the bigger the loot.
+// r: size in the jar (jar is 200 x 250 units). path: one drawing used for both the jar and the icons.
+const LOOT = {
+  online: {label:'Coin',       r:9,  fill:'#ffd166', edge:'#8a5a00', path:'M21 12a9 9 0 1 1-18 0a9 9 0 1 1 18 0z', detail:'M16.5 12a4.5 4.5 0 1 1-9 0a4.5 4.5 0 1 1 9 0z'},
+  text:   {label:'Cash stack', r:12, fill:'#7cf29a', edge:'#1d7a3c', path:'M4 6h16a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1-1.5 1.5H4a1.5 1.5 0 0 1-1.5-1.5v-9A1.5 1.5 0 0 1 4 6z', detail:'M14.5 12a2.5 2.5 0 1 1-5 0a2.5 2.5 0 1 1 5 0zM5.5 9v6M18.5 9v6'},
+  call:   {label:'Gold bar',   r:14, fill:'#ffbf1f', edge:'#8a5a00', path:'M3.5 18L7.5 7h9l4 11z', detail:'M8.5 9.5h7M5.5 15.5h13'},
+  saw:    {label:'Diamond',    r:17, fill:'#5ee7ff', edge:'#0a6a80', path:'M12 21L2.5 9.5 6.5 4h11l4 5.5z', detail:'M2.5 9.5h19M9 4l-1.5 5.5L12 21l4.5-11.5L15 4'},
+};
+const LOOT_ORDER = ['online', 'text', 'call', 'saw']; // small to big
+const JAR_RESPECT = 3;                   // respect for every full jar you stash
+const lootSVG = (k, sz = 20) => `<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" aria-hidden="true"><path d="${LOOT[k].path}" fill="${LOOT[k].fill}" stroke="${LOOT[k].edge}" stroke-width="1.6" stroke-linejoin="round"/><path d="${LOOT[k].detail}" fill="none" stroke="${LOOT[k].edge}" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const BOUNDARIES = [
+  "I can't talk right now.",
+  "I'm not discussing this.",
+  "That doesn't work for me.",
+  "I need some space. I'll reach out when I'm ready.",
+  "I'm going to leave this conversation here.",
+  "Please don't contact me for a while.",
+];
 const SAFE_MSG = "Rough day over here. No need to reply, I just wanted to say hi to someone I like.";
 const MISSION_TYPES = {
   catchup: {label:'Catch up with',   kinds:['saw', 'call']},
@@ -461,7 +507,7 @@ const TOXIC_AT = -1.1;                   // pattern score where someone goes Tox
 const PARENT_NAMES = /^(mum|mom|mummy|mother|dad|daddy|father|nan|nana|nanna|pop|grandma|grandpa|granny)$/i;
 
 /* ---------- state ---------- */
-let data = {v: 1, crews: DEFAULT_CREWS.map(c => ({...c})), homies: [], missions: [], missionsDay: '', kept: 0, battery: null, rests: []};
+let data = {v: 1, crews: DEFAULT_CREWS.map(c => ({...c})), homies: [], missions: [], missionsDay: '', kept: 0, battery: null, rests: [], stash: []};
 let saveOk = true;
 const prefs = (() => { try { return JSON.parse(localStorage.getItem(PREF_KEY) || '{}') || {}; } catch (e) { return {}; } })();
 if (typeof prefs.sound !== 'boolean') prefs.sound = true;
@@ -473,6 +519,7 @@ let shownRespect = null;
 let pendingReceipts = new Set();
 let BAT = {level: 70, checked: false, band: BANDS[2]}; // today's social battery, refreshed every render
 let RANGE = new Set();      // who you can handle on today's battery
+let STASH = {jars: [[]], full: 0, counts: {}, total: 0, week: 0}; // packed every render
 
 /* ---------- model ---------- */
 function normCrew(r){
@@ -624,7 +671,7 @@ function lastSeen(h){
 function playerRespect(){
   let r = data.kept;
   for (const h of data.homies) r += A.get(h.id).respect;
-  return r + data.missions.filter(m => m.done && !m.homieId).length;
+  return r + data.missions.filter(m => m.done && !m.homieId).length + STASH.full * JAR_RESPECT;
 }
 function battery(){
   const checked = !!(data.battery && data.battery.date === dayKey());
@@ -647,6 +694,38 @@ function canHandle(h, band = BAT.band.key){
   return lvl >= 1 && ['golden', 'dope', 'neutral'].includes(st) || lvl >= 2 && st === 'watch' || lvl >= 3 && st === 'toxic';
 }
 const lastRest = () => data.rests.reduce((m, r) => Math.max(m, r.at), 0);
+// Every contact drops loot, except contact with toxic homies and hits that landed ☢️ bad.
+const isLoot = l => KINDS[l.kind] && !l.tox && l.hit !== 'bad';
+function stashItems(){
+  const out = data.stash.slice();
+  for (const h of data.homies) for (const l of h.log) if (isLoot(l)) out.push({id: l.id, kind: l.kind, at: l.at, gold: l.hit === 'golden'});
+  return out.sort((a, b) => a.at - b.at || (a.id < b.id ? -1 : 1));
+}
+// Drop each item into the jar where it rests lowest; when one won't fit, that jar is full and a new one starts.
+const JAR = {left: 26, right: 174, floor: 238, top: 66};
+function packStash(){
+  const items = stashItems(), jars = [[]], counts = {online: 0, text: 0, call: 0, saw: 0}, weekStart = startOfDay(Date.now()) - ((new Date().getDay() + 6) % 7) * DAY;
+  let week = 0;
+  for (const it of items){
+    counts[it.kind]++; if (it.at >= weekStart) week++;
+    let spot = place(jars[jars.length - 1], it);
+    if (!spot){ jars.push([]); spot = place(jars[jars.length - 1], it); }
+    jars[jars.length - 1].push(spot);
+  }
+  return {jars, full: jars.length - 1, counts, total: items.length, week};
+}
+function place(jar, it){
+  const r = LOOT[it.kind].r, rnd = seeded(hashStr(it.id));
+  let best = null;
+  for (let k = 0; k < 7; k++){
+    const x = JAR.left + r + rnd() * (JAR.right - JAR.left - 2 * r);
+    let y = JAR.floor - r;
+    for (const p of jar){ const d = r + p.r - 1, dx = x - p.x; if (Math.abs(dx) < d) y = Math.min(y, p.y - Math.sqrt(d * d - dx * dx)); }
+    if (!best || y > best.y) best = {x, y};
+  }
+  if (best.y - r < JAR.top) return null;
+  return {id: it.id, kind: it.kind, gold: it.gold, r, x: best.x, y: best.y, rot: (rnd() - .5) * .9};
+}
 function refresh(){
   A = new Map(data.homies.map(h => [h.id, analyze(h)]));
   // Toxic is for good: lock in anyone the pattern has tipped over
@@ -655,6 +734,7 @@ function refresh(){
   if (locked) save();
   BAT = battery();
   RANGE = new Set(data.homies.filter(h => canHandle(h)).map(h => h.id));
+  STASH = packStash();
 }
 
 /* ---------- storage ---------- */
@@ -671,6 +751,7 @@ function load(){
       data.kept = Number.isFinite(p.kept) ? Math.max(0, p.kept) : 0;
       data.battery = p.battery && typeof p.battery.date === 'string' && Number.isFinite(p.battery.level) && Number.isFinite(p.battery.at) ? {date: p.battery.date, level: clamp(p.battery.level, 0, 100), at: p.battery.at} : null;
       data.rests = (Array.isArray(p.rests) ? p.rests : []).filter(r => r && Number.isFinite(r.at) && Number.isFinite(r.amt)).slice(-200);
+      data.stash = (Array.isArray(p.stash) ? p.stash : []).filter(x => x && LOOT[x.kind] && Number.isFinite(x.at) && okId(x.id)).map(x => ({id: x.id, kind: x.kind, at: x.at, gold: !!x.gold})).slice(-3000);
       fixCrews();
       return;
     }
@@ -1054,6 +1135,58 @@ const Hood = (() => {
   }};
 })();
 
+/* ---------- the stash jar ---------- */
+const Jar = (() => {
+  const cv = $('#jar'), ctx = cv.getContext('2d');
+  const paths = Object.fromEntries(Object.entries(LOOT).map(([k, L]) => [k, {body: new Path2D(L.path), detail: new Path2D(L.detail)}]));
+  const body = new Path2D('M60 46 L60 56 Q20 64 20 96 L20 230 Q20 246 36 246 L164 246 Q180 246 180 230 L180 96 Q180 64 140 56 L140 46 Z');
+  let lastNewest = null, anim = null, raf = 0;
+  function drawItem(it, y){
+    const s = it.r * 2 / 24, L = LOOT[it.kind];
+    ctx.save(); ctx.translate(it.x, y); ctx.rotate(it.rot); ctx.scale(s, s); ctx.translate(-12, -12);
+    ctx.fillStyle = L.fill; ctx.strokeStyle = L.edge; ctx.lineWidth = 1.6; ctx.lineJoin = 'round';
+    ctx.fill(paths[it.kind].body); ctx.stroke(paths[it.kind].body);
+    ctx.lineWidth = 1.3; ctx.lineCap = 'round'; ctx.stroke(paths[it.kind].detail);
+    ctx.restore();
+    if (it.gold){ ctx.fillStyle = '#fff'; ctx.font = `${Math.round(it.r * .8)}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('✦', it.x + it.r * .7, y - it.r * .7); }
+  }
+  function draw(now){
+    const W = cv.clientWidth; if (!W) return;
+    const dpr = Math.min(2, devicePixelRatio || 1), H = W * 1.25;
+    if (cv.width !== Math.round(W * dpr)){ cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+    const k = W / 200;
+    ctx.setTransform(dpr * k, 0, 0, dpr * k, 0, 0);
+    ctx.clearRect(0, 0, 200, 250);
+    const jar = STASH.jars[STASH.jars.length - 1];
+    // glass
+    ctx.fillStyle = 'rgba(255,255,255,.04)'; ctx.fill(body);
+    ctx.save(); ctx.clip(body);
+    for (const it of jar){
+      if (anim && it.id === anim.id){
+        const t = clamp((now - anim.t0) / 750, 0, 1), e = t < .7 ? Math.pow(t / .7, 2) : 1 - Math.sin((t - .7) / .3 * Math.PI) * .06;
+        drawItem(it, lerp(20, it.y, Math.min(1, e)) + (t >= .7 ? -Math.sin((t - .7) / .3 * Math.PI) * 6 : 0));
+      } else drawItem(it, it.y);
+    }
+    ctx.restore();
+    ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(236,222,255,.4)'; ctx.stroke(body);
+    ctx.fillStyle = 'rgba(255,255,255,.1)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(30, 96, 9, 120, 5) : ctx.rect(30, 96, 9, 120); ctx.fill();
+    // lid
+    const g = ctx.createLinearGradient(0, 26, 0, 46); g.addColorStop(0, '#ffe08f'); g.addColorStop(1, '#e0a020');
+    ctx.fillStyle = g; ctx.strokeStyle = '#05040a'; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(52, 26, 96, 22, 6) : ctx.rect(52, 26, 96, 22); ctx.fill(); ctx.stroke();
+    if (!jar.length){ ctx.fillStyle = 'rgba(236,222,255,.35)'; ctx.font = '800 15px "Barlow Condensed", sans-serif'; ctx.textAlign = 'center'; ctx.fillText('EMPTY JAR', 100, 150); }
+  }
+  function frame(now){ raf = 0; draw(now); if (anim && now - anim.t0 < 800) raf = requestAnimationFrame(frame); else anim = null; }
+  function render(){
+    const jar = STASH.jars[STASH.jars.length - 1], newest = jar.length ? jar[jar.length - 1].id : null;
+    if (lastNewest !== null && newest && newest !== lastNewest && !reduceMotion.matches) anim = {id: newest, t0: performance.now()};
+    lastNewest = newest || '';
+    cancelAnimationFrame(raf); raf = requestAnimationFrame(frame);
+  }
+  new ResizeObserver(() => { if (!raf) raf = requestAnimationFrame(frame); }).observe(cv);
+  return {render};
+})();
+
 /* ---------- render ---------- */
 function renderAll(){
   ensureMissions();
@@ -1062,9 +1195,21 @@ function renderAll(){
   renderPulse();
   Hood.layout();
   renderAlert();
+  renderStash();
   renderMissions();
   renderHomies();
   renderSafehouse();
+}
+function renderStash(){
+  const c = STASH.counts, jar = STASH.jars[STASH.jars.length - 1];
+  $('#stash-sub').textContent = STASH.full ? `🫙 ${STASH.full} full ${STASH.full === 1 ? 'jar' : 'jars'} stashed` : '';
+  $('#stash-info').innerHTML = `
+    <p class="stash-n">${STASH.total}<small>${STASH.total === 1 ? 'piece of loot' : 'pieces of loot'}${STASH.week ? ` · +${STASH.week} this week` : ''}</small></p>
+    <div class="loot-counts">${[...LOOT_ORDER].reverse().map(k => `<span>${lootSVG(k, 22)} ${c[k]}</span>`).join('')}</div>
+    <p class="fine">${STASH.total ? `Jar ${STASH.full + 1}: ${jar.length} in. Fill it for Respect +${JAR_RESPECT}.` : 'Every time you connect, loot drops in. Bigger moves, bigger loot. The jar only fills.'}</p>`;
+  $('#loot-key').innerHTML = LOOT_ORDER.map(k => `<span>${lootSVG(k, 18)} ${KINDS[k].label}</span>`).join('');
+  $('#jar').setAttribute('aria-label', `Your stash jar: ${STASH.total} pieces of loot. ${c.saw} diamonds, ${c.call} gold bars, ${c.text} cash stacks, ${c.online} coins.`);
+  Jar.render();
 }
 let respectAnim = 0;
 const cells = (n, of = 10) => `<div class="cells" aria-hidden="true">${Array.from({length: of}, (_, i) => `<i${i < n ? ' class="on"' : ''}></i>`).join('')}</div>`;
@@ -1305,8 +1450,10 @@ function homieSheet(id){
       : layingLow(h) ? `<div class="banner"><span>🌙 Laying low till ${new Date(h.layLowUntil).toLocaleString('en-AU', {weekday: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'})}</span><button class="btn small" data-act="end-laylow" data-id="${esc(h.id)}">End it</button></div>` : ''}
     <div class="sec" style="border-top:0;padding-top:12px">
       <div class="qa">
-        <button class="hit" data-act="hitup" data-id="${esc(h.id)}" data-autofocus><span>📲</span>Hit them up</button>
-        <button class="catch" data-act="catchup" data-id="${esc(h.id)}"><span>🤝</span>Catch up</button>
+        ${h.toxic ? `<button class="deal" data-act="deal" data-id="${esc(h.id)}" data-autofocus><span>☢️</span>Had to deal with them</button>
+        <button class="catch" data-act="boundary" data-id="${esc(h.id)}"><span>🛡️</span>Boundary lines</button>`
+        : `<button class="hit" data-act="hitup" data-id="${esc(h.id)}" data-autofocus><span>📲</span>Hit them up</button>
+        <button class="catch" data-act="catchup" data-id="${esc(h.id)}"><span>🤝</span>Catch up</button>`}
         <button class="${layingLow(h) ? 'on' : ''}" data-act="laylow" data-id="${esc(h.id)}"><span>🌙</span>Lay low</button>
         <button class="${h.silent ? 'on' : ''}" data-act="silence" data-id="${esc(h.id)}"><span>🔇</span>Radio silence</button>
         <button class="bail" data-act="bail" data-id="${esc(h.id)}"><span>🚨</span>Bail</button>
@@ -1324,8 +1471,17 @@ function homieSheet(id){
     </div>
     <div class="sec"><button class="btn wide" data-act="edit" data-id="${esc(h.id)}">✏️ Edit ${esc(first(h))}</button></div>`, h.name);
 }
+function boundarySheet(id){
+  const h = byId(id); if (!h) return;
+  openSheet(`
+    <div class="sh-head">${tok(h, 54)}<div class="grow"><p class="kicker">Boundary lines</p><h2>${esc(h.name)}</h2></div>${xBtn}</div>
+    <p style="margin:0 0 12px;color:var(--smog)">You don't owe ${esc(first(h))} a reply. Not replying is a move too. If you do reply, keep it short:</p>
+    <div style="display:grid;gap:8px">${BOUNDARIES.map(b => `<div class="bubble" style="display:flex;gap:8px;align-items:flex-start;padding:12px 10px 12px 14px;border-radius:18px 18px 18px 4px;background:rgba(182,255,60,.08);border:1px solid rgba(182,255,60,.3)"><p style="margin:0;flex:1">${esc(b)}</p><button class="btn small" data-act="copy" data-text="${esc(b)}">Copy</button></div>`).join('')}</div>
+    <div class="row" style="margin-top:14px"><button class="btn small" data-act="noreply-mission" data-id="${esc(h.id)}">🛡️ Mission: don't reply tonight</button><button class="btn haz small" data-act="bail" data-id="${esc(h.id)}">🚨 Bail</button></div>`, `Boundary lines for ${h.name}`);
+}
 function hitUpSheet(id){
   const h = byId(id); if (!h) return;
+  if (h.toxic){ homieSheet(id); return; } // toxic people get dealt with, not hit up
   openSheet(`
     <div class="sh-head">${tok(h, 54)}<div class="grow"><p class="kicker">Hit them up</p><h2>${esc(h.name)}</h2></div>${xBtn}</div>
     <div class="qa">
@@ -1340,7 +1496,8 @@ function hitSheet(id, kind){
   const h = byId(id); if (!h) return;
   pendingReceipts = new Set();
   openSheet(`
-    <div class="sh-head">${tok(h, 48)}<div class="grow"><p class="kicker">${esc(h.name)}</p><div class="row" style="gap:6px" role="radiogroup" aria-label="How you were in touch">${Object.entries(KINDS).map(([k, K]) => `<button class="chip" role="radio" aria-checked="${k === kind}" data-act="kind" data-v="${k}">${K.emoji} ${K.label}</button>`).join('')}</div></div>${xBtn}</div>
+    <div class="sh-head">${tok(h, 48)}<div class="grow"><p class="kicker">${h.toxic ? 'Dealt with' : 'Connected with'}</p><h2>${esc(h.name)}</h2></div>${xBtn}</div>
+    <div class="kind-tiles" role="radiogroup" aria-label="How you connected">${LOOT_ORDER.map(k => `<button class="kt" role="radio" aria-checked="${k === kind}" data-act="kind" data-v="${k}"><span class="ke">${KINDS[k].emoji}</span><b>${KINDS[k].label}</b><span class="kl">${h.toxic ? 'no loot' : `${lootSVG(k, 16)} ${LOOT[k].label}`}</span></button>`).join('')}</div>
     <h2 class="big-q">How did that <em>hit?</em></h2>
     ${h.toxic ? `<p class="toxic-banner" style="margin:0 0 12px">☢️ <b>Toxic.</b> This contact costs an extra ${-TOXIC_DRAIN}% battery.</p>` : !RANGE.has(h.id) ? `<p class="fine" style="margin:0 0 12px;text-align:center">🪫 Heads up: ${esc(first(h))} is outside what a ${BAT.band.label} battery can handle. Go easy on yourself.</p>` : ''}
     <div class="hits">${HIT_ORDER.map(k => { const d = HIT_BAT[k] + (h.toxic ? TOXIC_DRAIN : 0); return `<button class="hitb" style="--hc:${HITS[k].color}" data-act="hit" data-id="${esc(h.id)}" data-v="${k}"${k === 'good' ? ' data-autofocus' : ''}><span>${HITS[k].emoji}</span>${HITS[k].label}<small>🔋${d > 0 ? '+' : ''}${d}%</small></button>`; }).join('')}</div>
@@ -1584,7 +1741,7 @@ function doSpin(){
 /* ---------- the big moments ---------- */
 function logInteraction(id, kind, hit){
   const h = byId(id); if (!h || !KINDS[kind]) return;
-  const before = A.get(h.id), respBefore = playerRespect(), batBefore = BAT;
+  const before = A.get(h.id), respBefore = playerRespect(), batBefore = BAT, jarsBefore = STASH.full;
   const entry = {id: uid('l'), at: Date.now(), kind, hit: hit || null, tox: !!h.toxic};
   h.log.unshift(entry);
   const receipts = [...pendingReceipts].map(text => ({id: uid('r'), at: Date.now(), text, tone: RECEIPTS.good.includes(text) ? 1 : RECEIPTS.bad.includes(text) ? -1 : 0}));
@@ -1603,7 +1760,9 @@ function logInteraction(id, kind, hit){
   if (gained > 0) popup(`Respect +${gained}${batTxt}`, 'var(--gold)');
   else if (after.stars > before.stars) popup(`Heat ${'★'.repeat(after.stars)}${batTxt}`, '#fff');
   else if (batD) popup(`🔋 ${batD > 0 ? '+' : ''}${batD}%`, batD > 0 ? 'var(--cash)' : '#ff9b3d');
-  if (BAT.band.key !== batBefore.band.key && BAT.checked) setTimeout(() => popup(`${BAT.band.icon} ${BAT.band.label} battery now`, BAT.band.color), 1300);
+  if (isLoot(entry)) setTimeout(() => popup(`+1 ${LOOT[kind].label}`, LOOT[kind].fill), 950);
+  if (BAT.band.key !== batBefore.band.key && BAT.checked) setTimeout(() => popup(`${BAT.band.icon} ${BAT.band.label} battery now`, BAT.band.color), 1900);
+  if (STASH.full > jarsBefore) Win.push({type: 'jar', n: STASH.full});
   for (const m of passed) Win.push({type: 'mission', mission: m});
   if (after.status !== before.status) Win.push({type: 'status', id: h.id, from: before.status, to: after.status});
   if (after.stars >= 3 && after.stars > before.stars) Win.push({type: 'heat', id: h.id});
@@ -1683,6 +1842,10 @@ const Win = {
         <div class="row"><button class="btn haz small" data-act="win-bail" data-id="${esc(h.id)}">🚨 Bail</button><button class="btn small" data-act="win-laylow" data-id="${esc(h.id)}">🌙 Lay low</button><button class="btn small" data-act="collect">Got it</button></div></div>${tap}`;
       Sound.play('heat'); vibrate([200, 100, 200]);
       document.body.classList.remove('shake'); void document.body.offsetWidth; document.body.classList.add('shake');
+    } else if (item.type === 'jar'){
+      el.className = 'win bars';
+      el.innerHTML = `<div class="win-card"><p class="win-kicker">Jar #${item.n} secured</p><h2 class="win-stamp">Stash full</h2><p class="win-sub"><b>Respect +${JAR_RESPECT}</b></p><p class="win-text">A whole jar of times you showed up for your people. Fresh jar's ready.</p><button class="btn gold" data-act="collect">Stash it</button></div>${tap}`;
+      Sound.play('mission'); vibrate([60, 40, 60, 40, 120]); setTimeout(() => Confetti.burst(160, {gold: true}), 200);
     } else if (item.type === 'bail'){
       const h = item.id && byId(item.id);
       el.className = 'win calm bars';
@@ -1736,11 +1899,13 @@ function addHomies(names, crewId, base){
 function removeHomie(id){
   const h = byId(id); if (!h) return;
   const kept = A.get(h.id).respect, missions = data.missions.filter(m => m.homieId === h.id);
+  const loot = h.log.filter(isLoot).map(l => ({id: l.id, kind: l.kind, at: l.at, gold: l.hit === 'golden'}));
+  data.stash.push(...loot); // their loot stays in your stash
   data.homies = data.homies.filter(x => x !== h);
   data.missions = data.missions.filter(m => m.homieId !== h.id);
   data.kept += kept; // your respect stays yours
   save(); closeSheet(); renderAll();
-  toast(`${first(h)} left the Hood.`, {undo: () => { data.homies.push(h); data.missions.push(...missions); data.kept = Math.max(0, data.kept - kept); save(); renderAll(); }});
+  toast(`${first(h)} left the Hood.`, {undo: () => { data.homies.push(h); data.missions.push(...missions); const ids = new Set(loot.map(x => x.id)); data.stash = data.stash.filter(x => !ids.has(x.id)); data.kept = Math.max(0, data.kept - kept); save(); renderAll(); }});
 }
 
 /* ---------- backup ---------- */
@@ -1847,6 +2012,9 @@ document.addEventListener('click', e => {
     case 'crew-filter': crewFilter = v; Sound.play('tap'); renderHomies(); break;
     case 'hitup': hitUpSheet(id); break;
     case 'catchup': hitSheet(id, 'saw'); break;
+    case 'deal': hitSheet(id, 'text'); break;
+    case 'boundary': boundarySheet(id); break;
+    case 'noreply-mission': if (h){ if (!data.missions.some(m => !m.done && !m.skipped && m.type === 'noreply' && m.homieId === h.id)){ data.missions.push(newMission('noreply', h.id, `Don't reply to ${first(h)} tonight`)); save(); renderAll(); } closeSheet(); toast("Mission added. Tick it off once tonight's done. 🛡️"); } break;
     case 'reach': setTimeout(() => hitSheet(id, t.dataset.kind), t.tagName === 'A' ? 400 : 0); break;
     case 'kind': $('#sheet').dataset.kind = v; t.parentElement.querySelectorAll('[data-act="kind"]').forEach(b => b.setAttribute('aria-checked', String(b === t))); Sound.play('tap'); break;
     case 'hit': logInteraction(id, $('#sheet').dataset.kind || 'text', v || null); break;

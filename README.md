@@ -74,6 +74,9 @@ Under 15%, the app points you to the Safehouse.
   of days.
 - **🔇 Radio silence:** you've decided not to interact for a while. They stay in
   the Hood, greyed out, until you break it.
+- **☢️ Toxic homies** can't be hit up. They have to be dealt with: **Had to
+  deal with them** (logs the exposure), **🛡️ Boundary lines** to copy (or a
+  "don't reply tonight" mission), Lay low, Radio silence and Bail.
 - **🚨 Bail:** you don't have to deal with it right now. The app reminds you that
   you don't have to reply. From there: breathe for 30 seconds, lay low, or make
   it a mission not to reply tonight.
@@ -81,6 +84,22 @@ Under 15%, the app points you to the Safehouse.
 Each Homie also shows **Heat**, **Respect** (positive history), **last seen**
 ("Texted 2 days ago", "No contact for 3 months"), their recent hits and their
 **receipts**.
+
+## 🫙 The stash
+
+Every time you connect, loot drops into your stash jar, and bigger moves drop
+bigger loot:
+
+| How you connected | Loot |
+|---|---|
+| 📱 Online | Coin |
+| 💬 Text | Cash stack |
+| 📞 Call | Gold bar |
+| 🤝 In person | Diamond |
+
+Golden hits add a sparkle to the item. The jar only fills, and each full jar is
+stashed for **Respect +3**, then a fresh one starts. Contact with toxic homies
+and hits that land ☢️ bad drop nothing.
 
 ## Hood Pulse and missions
 
