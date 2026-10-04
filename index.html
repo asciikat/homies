@@ -79,7 +79,6 @@ a { color: var(--palm); }
 .bat-pill { display: inline-flex; align-items: center; gap: 4px; min-height: 42px; padding: 0 10px; border-radius: 999px; border: 2px solid color-mix(in srgb, var(--bc) 55%, transparent); background: color-mix(in srgb, var(--bc) 10%, transparent); color: var(--bc); font: 900 19px/1 var(--font-display); white-space: nowrap; }
 @media (max-width: 420px) { .pill small { display: none; } .logo { font-size: 25px; } .top-in { gap: 6px; padding-inline: 12px; } }
 /* social battery, slim */
-.vibe-strip { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .mini { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 50px; padding: 7px 10px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--bc, var(--gold)) 40%, transparent); background: color-mix(in srgb, var(--bc, var(--gold)) 8%, rgba(0, 0, 0, .25)); text-align: left; color: var(--ink); }
 .mini .mi { font-size: 20px; flex: none; }
 .mini .mt { display: grid; gap: 3px; min-width: 0; flex: 1; }
@@ -87,7 +86,6 @@ a { color: var(--palm); }
 .mini small { font-size: 12.5px; color: var(--smog); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mbar { display: block; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, .1); overflow: hidden; }
 .mbar i { display: block; height: 100%; border-radius: 3px; background: var(--bc); }
-.light-mini .mi { filter: drop-shadow(0 0 calc(var(--lv) * 10px) rgba(255, 209, 102, .9)); }
 .ci-compact { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .ci-compact .kicker { flex: 1 0 100%; }
 .ci-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; flex: 1; }
@@ -143,7 +141,7 @@ a { color: var(--palm); }
 .hitb small { font: 700 11.5px/1 var(--font-hud); letter-spacing: .02em; color: var(--smog); }
 .in-safehouse .icon-btn.house { background: var(--palm); }
 
-main, .safehouse { max-width: 560px; margin: 0 auto; padding: 12px 14px calc(env(safe-area-inset-bottom, 0px) + 32px); display: grid; gap: 14px; }
+main, .safehouse { max-width: 560px; margin: 0 auto; padding: 10px 12px calc(env(safe-area-inset-bottom, 0px) + 32px); display: grid; gap: 14px; }
 .panel { background: linear-gradient(180deg, var(--panel), #120d1b); border: 1px solid var(--line); border-radius: 18px; padding: 14px; display: grid; gap: 10px; }
 .panel h2 { margin: 0; font: 900 24px/1 var(--font-display); text-transform: uppercase; letter-spacing: .02em; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .panel h2 span { font: 800 14px/1 var(--font-hud); letter-spacing: .1em; color: var(--smog); }
@@ -187,8 +185,8 @@ main, .safehouse { max-width: 560px; margin: 0 auto; padding: 12px 14px calc(env
 /* hood pulse */
 .pulse-row { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 0 -2px; padding: 2px; }
 .pulse-row::-webkit-scrollbar { display: none; }
-.ptile { flex: none; display: grid; justify-items: start; gap: 2px; min-width: 86px; padding: 9px 12px; border-radius: 14px; border: 2px solid color-mix(in srgb, var(--pc) 40%, transparent); background: color-mix(in srgb, var(--pc) 10%, transparent); text-align: left; }
-.ptile b { font: 900 30px/1 var(--font-display); color: var(--pc); display: flex; align-items: center; gap: 6px; }
+.ptile { flex: none; display: grid; justify-items: start; gap: 2px; min-width: 76px; padding: 7px 10px; border-radius: 14px; border: 2px solid color-mix(in srgb, var(--pc) 40%, transparent); background: color-mix(in srgb, var(--pc) 10%, transparent); text-align: left; }
+.ptile b { font: 900 24px/1 var(--font-display); color: var(--pc); display: flex; align-items: center; gap: 6px; }
 .ptile b span { font-size: 20px; }
 .ptile small { font: 800 12px/1.1 var(--font-hud); letter-spacing: .1em; text-transform: uppercase; color: var(--smog); white-space: nowrap; }
 .ptile[aria-pressed="true"] { background: color-mix(in srgb, var(--pc) 28%, transparent); border-color: var(--pc); }
@@ -200,12 +198,26 @@ main, .safehouse { max-width: 560px; margin: 0 auto; padding: 12px 14px calc(env
 @keyframes popin { from { transform: scale(.9); opacity: 0; } }
 
 /* the map */
-.map-card { padding: 10px; gap: 10px; }
+.map-card { padding: 8px; gap: 8px; }
+/* inside Mission Possible Plus: the logo row becomes a full-screen button, and sheets and
+   pop-ups stay inside the part of The Hood you can actually see (set from the parent page) */
+.fs-btn { margin-right: auto; color: var(--gold); border-color: rgba(255, 209, 102, .45); }
+body.embed.in-plus .logo { display: none; }
+body.embed .top { top: var(--vis-top, 0px); }
+body.embed .sheet { bottom: var(--vis-bottom, 0px); max-height: calc(var(--vis-h, 92dvh) - 8px); }
+body.embed .scrim, body.embed .win { top: var(--vis-top, 0px); bottom: var(--vis-bottom, 0px); }
+body.embed .win { padding-top: 7vh; padding-bottom: 7vh; }
+body.embed .toast { bottom: calc(var(--vis-bottom, 0px) + 14px); }
+body.embed .popup { top: calc(var(--vis-top, 0px) + 70px); }
+#checkin:empty { display: none; }
+#checkin { padding: 10px 12px; border-radius: 14px; border: 1px solid var(--line); background: linear-gradient(180deg, var(--panel), #120d1b); }
+.pulse-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.ptile.light-tile { --pc: var(--gold); }
 .map-wrap { position: relative; width: 100%; aspect-ratio: 1; border-radius: 16px; overflow: hidden; background: #120e1d; }
 #map { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: manipulation; }
 .map-empty { position: absolute; left: 50%; top: 58%; transform: translateX(-50%); width: min(300px, 80%); text-align: center; padding: 14px; border-radius: 14px; background: rgba(13, 10, 20, .9); border: 1px solid var(--line-2); display: grid; gap: 10px; justify-items: center; }
 .map-empty p { margin: 0; }
-.map-key { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; font: 700 13px/1 var(--font-hud); letter-spacing: .06em; color: var(--smog); }
+.map-key { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; font: 700 12px/1 var(--font-hud); letter-spacing: .04em; color: var(--smog); }
 .actions3 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 .stash-btn { position: relative; }
 .stash-btn em { position: absolute; top: 5px; right: 6px; min-width: 22px; padding: 3px 5px; border-radius: 999px; background: var(--gold); color: #3d2300; font: 900 13px/1 var(--font-display); font-style: normal; letter-spacing: 0; }
@@ -363,6 +375,7 @@ main, .safehouse { max-width: 560px; margin: 0 auto; padding: 12px 14px calc(env
 <body>
 <header class="top">
   <div class="top-in">
+    <button class="icon-btn fs-btn" id="fs-btn" data-act="fullscreen" aria-label="Full screen" hidden><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
     <div class="logo">The Hood</div>
     <button class="bat-pill" id="bat-pill" data-act="battery" aria-label="Social battery"></button>
     <button class="pill" id="respect-pill" data-act="menu" aria-label="Your respect"><small>Respect</small><b id="respect">0</b></button>
@@ -372,7 +385,7 @@ main, .safehouse { max-width: 560px; margin: 0 auto; padding: 12px 14px calc(env
 </header>
 
 <main id="main">
-  <section class="panel" id="pulse" aria-label="Hood pulse"></section>
+  <div id="checkin"></div>
   <div id="alert"></div>
   <section class="panel map-card" aria-label="The Hood map">
     <div class="map-wrap" id="map-wrap">
@@ -387,6 +400,7 @@ main, .safehouse { max-width: 560px; margin: 0 auto; padding: 12px 14px calc(env
       <button class="act3 bail" data-act="bail"><span>🚨</span>Bail</button>
     </div>
   </section>
+  <section class="panel" id="pulse" aria-label="Hood pulse"></section>
   <section class="panel" id="missions" aria-label="Missions"></section>
   <section class="panel" id="homies" aria-label="Your homies"></section>
 </main>
@@ -1260,6 +1274,7 @@ function renderAll(){
   ensureMissions();
   refresh();
   renderTop();
+  renderCheckin();
   renderPulse();
   Hood.layout();
   renderAlert();
@@ -1297,13 +1312,9 @@ function batteryMini(){
   const b = BAT, out = data.homies.filter(h => !RANGE.has(h.id) && !h.silent).length;
   return `<button class="mini" style="--bc:${b.band.color}" data-act="battery" aria-label="Social battery ${b.level}%, ${b.band.label}${out ? `, ${out} out of range` : ''}. Tap to change."><span class="mi">${b.band.icon}</span><span class="mt"><b>${b.level}% · ${b.band.label}</b><small>${out ? `${out} out of range` : 'Everyone in range'}</small><i class="mbar"><i style="width:${b.level}%"></i></i></span></button>`;
 }
-function lightMini(){
-  const L = lightLevel(LIGHT.v), names = LIGHT.from.slice(0, 2).map(h => first(h));
-  return `<div class="mini light-mini" style="--lv:${L.lv}"><span class="mi" aria-hidden="true">✨</span><span class="mt"><b>Light: ${L.label}</b><small>${names.length ? `From ${esc(names.join(', '))}` : 'Grows with your Golden'}</small></span></div>`;
-}
-function vibeStrip(){
-  if (!BAT.checked) return `<div class="ci-compact"><span class="kicker">🔋 Battery today?</span><div class="ci-row" role="group" aria-label="Social battery">${BANDS.map(b => `<button class="cib" style="--bc:${b.color}" data-act="checkin" data-v="${b.check}" title="${b.handles}">${b.icon} ${b.label}</button>`).join('')}</div></div>${lightMini()}`;
-  return `<div class="vibe-strip">${batteryMini()}${lightMini()}</div>`;
+function renderCheckin(){
+  // the daily battery check-in sits above the map until you've done it; after that, it's the 🔋 in the top bar
+  $('#checkin').innerHTML = BAT.checked || !data.homies.length ? '' : `<div class="ci-compact"><span class="kicker">🔋 Battery today?</span><div class="ci-row" role="group" aria-label="Social battery">${BANDS.map(b => `<button class="cib" style="--bc:${b.color}" data-act="checkin" data-v="${b.check}" title="${b.handles}">${b.icon} ${b.label}</button>`).join('')}</div></div>`;
 }
 function checkinHTML(){
   return `<div class="checkin"><p class="kicker">How's your social battery?</p><div class="checkin-btns" role="group" aria-label="Social battery">${BANDS.map(b => `<button class="ci" style="--bc:${b.color}" data-act="checkin" data-v="${b.check}" aria-pressed="${BAT.checked && BAT.band.key === b.key}"><span>${b.icon}</span>${b.label}<small>${b.handles}</small></button>`).join('')}</div></div>`;
@@ -1346,7 +1357,7 @@ function pulseGroups(){
 function renderPulse(){
   const el = $('#pulse');
   if (!data.homies.length){
-    el.innerHTML = `<h2>Hood pulse</h2><p class="pulse-say">The streets are quiet. Add your homies and the Hood comes alive.</p>`;
+    el.innerHTML = `<span class="kicker">Hood pulse</span><p class="pulse-say">The streets are quiet. Add your homies and the Hood comes alive.</p>`;
     focus = null; return;
   }
   const groups = pulseGroups().filter(g => g.list.length);
@@ -1361,9 +1372,10 @@ function renderPulse(){
   else if (by('toxic').length) bits.push(`Radiation around ${nameList(by('toxic'))}.`);
   else if (by('watch').length) bits.push(`Watching ${nameList(by('watch'))}.`);
   if (by('drift').length) bits.push(`${nameList(by('drift'))} ${by('drift').length === 1 ? 'is' : 'are'} drifting.`);
-  el.innerHTML = `<h2>Hood pulse <span>${data.homies.length} ${data.homies.length === 1 ? 'homie' : 'homies'}</span></h2>
-    ${vibeStrip()}
-    ${groups.length ? `<div class="pulse-row" role="group" aria-label="Show these on the map">${groups.map(g => `<button class="ptile" style="--pc:${g.color}" data-act="focus" data-v="${g.key}" aria-pressed="${!!(focus && focus.key === g.key)}"><b><span>${g.icon}</span>${g.list.length}</b><small>${g.label}</small></button>`).join('')}</div>` : ''}
+  const L = lightLevel(LIGHT.v);
+  const lightTile = `<div class="ptile light-tile" title="${LIGHT.from.length ? `Your light, from ${esc(LIGHT.from.slice(0, 3).map(first).join(', '))}` : 'Your light grows with your Golden homies'}"><b><span>✨</span>${L.label}</b><small>Your light</small></div>`;
+  el.innerHTML = `<div class="pulse-head"><span class="kicker">Hood pulse</span><span class="kicker">${data.homies.length} ${data.homies.length === 1 ? 'homie' : 'homies'}</span></div>
+    ${`<div class="pulse-row" role="group" aria-label="Show these on the map">${lightTile}${groups.map(g => `<button class="ptile" style="--pc:${g.color}" data-act="focus" data-v="${g.key}" aria-pressed="${!!(focus && focus.key === g.key)}"><b><span>${g.icon}</span>${g.list.length}</b><small>${g.label}</small></button>`).join('')}</div>`}
     <p class="pulse-say">${bits.join(' ') || 'All quiet in the Hood. No strong patterns yet.'}${focus ? ` <button class="link" data-act="focus" data-v="">Show everyone</button>` : ''}</p>`;
 }
 function renderAlert(){
@@ -2073,6 +2085,37 @@ function restore(text){
 }
 
 /* ---------- Mission Possible bridge (inside the board via ?embed=1) ---------- */
+// Inside Mission Possible Plus: work out which part of The Hood is actually on screen (the frame can be
+// taller than the screen, and the Plus top bar covers its top), and keep sheets and pop-ups in there.
+if (EMBED && window.frameElement){
+  try {
+    const fr = window.frameElement, root = document.documentElement;
+    if (parent.document.getElementById('hood-panel')){ document.body.classList.add('in-plus'); $('#fs-btn').hidden = false; }
+    const fitView = () => {
+      try {
+        const r = fr.getBoundingClientRect(), cover = +(fr.dataset.coverTop || 0);
+        const top = clamp(cover - r.top, 0, innerHeight), bottom = clamp(parent.innerHeight - r.top, 0, innerHeight);
+        root.style.setProperty('--vis-top', `${Math.round(top)}px`);
+        root.style.setProperty('--vis-bottom', `${Math.round(Math.max(0, innerHeight - bottom))}px`);
+        root.style.setProperty('--vis-h', `${Math.round(Math.max(240, bottom - top))}px`);
+      } catch (e) {}
+    };
+    parent.addEventListener('scroll', fitView, {passive: true});
+    parent.addEventListener('resize', fitView);
+    addEventListener('resize', fitView);
+    new MutationObserver(fitView).observe(fr, {attributes: true});
+    fitView();
+  } catch (e) {}
+}
+addEventListener('message', e => {
+  if (!EMBED || e.origin !== location.origin || e.source !== window.parent) return;
+  const d = e.data;
+  if (d && d.source === 'mission-possible' && d.type === 'fullscreen-state'){
+    const b = $('#fs-btn');
+    b.setAttribute('aria-label', d.on ? 'Shrink' : 'Full screen');
+    b.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d.on ? 'M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5' : 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5'}"/></svg>`;
+  }
+});
 const Bridge = { send(msg){ if (!EMBED || window.parent === window) return; try { window.parent.postMessage(Object.assign({source: 'homies', v: 4}, msg), location.origin); } catch (e) {} } };
 
 /* ---------- toast ---------- */
@@ -2128,6 +2171,7 @@ document.addEventListener('click', e => {
     case 'safehouse': setSafehouse(!prefs.safehouse); break;
     case 'wheel': Sound.play('tap'); wheelSheet(); break;
     case 'stash': Sound.play('tap'); stashSheet(); break;
+    case 'fullscreen': Bridge.send({type: 'fullscreen'}); break;
     case 'spin': doSpin(); break;
     case 'bail': bail(id); break;
     case 'breathe': Win.push({type: 'breathe'}); break;
