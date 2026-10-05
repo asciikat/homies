@@ -47,11 +47,14 @@ addEventListener('message', (e) => {
 5. **One Safehouse.** Turning on Safehouse in either app calms both.
 6. **Birthdays and catch-ups on Ezycal.** Planned catch-ups show on the
    calendar tab.
-7. **One sync.** Mission Possible syncs through Firebase (`boards/{uid}`). The
-   Hood can sync to `homies/{uid}` in the same project, with the same Google
-   sign-in, after adding one rule:
+7. **One sync (built).** Mission Possible syncs through Firebase (`boards/{uid}`).
+   The Hood syncs to `homies/{uid}` and Ezycal to `calendar/{uid}` in the same project,
+   with the same Google sign-in, after adding these rules:
    ```
    match /homies/{uid} {
+     allow read, write: if request.auth != null && request.auth.uid == uid;
+   }
+   match /calendar/{uid} {
      allow read, write: if request.auth != null && request.auth.uid == uid;
    }
    ```

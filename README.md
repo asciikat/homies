@@ -166,10 +166,26 @@ Samaritans).
 
 ## Data
 
-Saved in this browser only (`localStorage`, key `homies.hood.v1`). Use **☰ →
-Back up** now and then. **Restore** merges a backup in, and also takes Friend
-Orbit and older Homies backups. Data from earlier versions of Homies moves across
-automatically.
+Saved in this browser (`localStorage`, key `homies.hood.v1`). Use **☰ → Back up** now
+and then. **Restore** merges a backup in, and also takes Friend Orbit and older
+Homies backups. Data from earlier versions of Homies moves across automatically.
+
+## ☁️ Sync across your phone and other devices
+
+**☰ → Sign in to sync** keeps every device on the same Hood. It uses the same free
+Firebase project and Google sign-in as Mission Board and Ezycal, so signing in on
+the board signs you in here too (inside Mission Possible Plus it just works).
+
+Changes are **merged, never overwritten**: homies, hits, receipts, missions and
+loot from every device are joined, the newest edit wins for a homie's details, and
+anything you delete stays deleted. Two devices can both log hits offline and
+you'll end up with both. Your battery, sound and safehouse choices stay per device.
+
+One-time setup (the Firebase project already exists for Mission Board): in
+**Firestore → Rules** add the `homies` rule. The full set is in
+[`firestore.rules`](https://github.com/asciikat/mission-possible-plus/blob/main/firestore.rules)
+in Mission Possible Plus. Your Hood is stored as one private document per Google
+account, readable only by you.
 
 ## Host free on GitHub Pages
 Repo **Settings → Pages → Deploy from a branch → `main` / root**, then open

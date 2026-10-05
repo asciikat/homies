@@ -415,6 +415,8 @@ body.embed .popup { top: calc(var(--vis-top, 0px) + 70px); }
 <div class="sr" id="announcer" aria-live="polite"></div>
 <input type="file" id="import-file" accept=".json,application/json" hidden>
 
+<!-- Optional cloud sync settings; see firebase-config.js. Missing file = sync stays off. -->
+<script src="firebase-config.js"></script>
 <script>
 (() => {
 'use strict';
@@ -546,7 +548,8 @@ const TOXIC_AT = -1.1;                   // pattern score where someone goes Tox
 const PARENT_NAMES = /^(mum|mom|mummy|mother|dad|daddy|father|nan|nana|nanna|pop|grandma|grandpa|granny)$/i;
 
 /* ---------- state ---------- */
-let data = {v: 1, crews: DEFAULT_CREWS.map(c => ({...c})), homies: [], missions: [], missionsDay: '', kept: 0, battery: null, rests: [], stash: []};
+let data = {v: 1, crews: DEFAULT_CREWS.map(c => ({...c})), homies: [], missions: [], missionsDay: '', kept: 0, battery: null, rests: [], stash: [], gone: {}};
+let onSaved = null;         // cloud sync listens here (see Cloud sync)
 let saveOk = true;
 const prefs = (() => { try { return JSON.parse(localStorage.getItem(PREF_KEY) || '{}') || {}; } catch (e) { return {}; } })();
 if (typeof prefs.sound !== 'boolean') prefs.sound = true;
@@ -567,7 +570,7 @@ function normCrew(r){
   if (!r || typeof r !== 'object') return null;
   const name = str(r.name, 24);
   if (!name) return null;
-  return {id: okId(r.id) ? r.id : uid('c'), name, emoji: Array.from(str(r.emoji, 16)).slice(0, 2).join('') || '🫂', color: /^#[0-9a-f]{6}$/i.test(r.color) ? r.color : CREW_COLORS[0]};
+  return {id: okId(r.id) ? r.id : uid('c'), name, emoji: Array.from(str(r.emoji, 16)).slice(0, 2).join('') || '🫂', color: /^#[0-9a-f]{6}$/i.test(r.color) ? r.color : CREW_COLORS[0], editedAt: Number.isFinite(r.editedAt) ? r.editedAt : 0};
 }
 function normHomie(r){
   if (!r || typeof r !== 'object') return null;
@@ -593,6 +596,7 @@ function normHomie(r){
     toxic: r.toxic && Number.isFinite(r.toxic.at) ? {at: r.toxic.at, by: typeof r.toxic.by === 'string' ? r.toxic.by.slice(0, 80) : 'pattern'} : null,
     lowBat: r.lowBat === true ? true : r.lowBat === false ? false : null, // your call for the low-battery list; null = good people by default
     log, receipts,
+    editedAt: Number.isFinite(r.editedAt) ? r.editedAt : 0, // when this homie's details last changed, so sync keeps the newest edit
   };
 }
 function normMission(m){
@@ -822,6 +826,7 @@ function load(){
       data.battery = p.battery && typeof p.battery.date === 'string' && Number.isFinite(p.battery.level) && Number.isFinite(p.battery.at) ? {date: p.battery.date, level: clamp(p.battery.level, 0, 100), at: p.battery.at} : null;
       data.rests = (Array.isArray(p.rests) ? p.rests : []).filter(r => r && Number.isFinite(r.at) && Number.isFinite(r.amt)).slice(-200);
       data.stash = (Array.isArray(p.stash) ? p.stash : []).filter(x => x && LOOT[x.kind] && Number.isFinite(x.at) && okId(x.id)).map(x => ({id: x.id, kind: x.kind, at: x.at, gold: !!x.gold})).slice(-3000);
+      data.gone = cleanGone(p.gone);
       fixCrews();
       return;
     }
@@ -837,7 +842,48 @@ function load(){
     if (data.homies.length) save();
   } catch (e) { fixCrews(); }
 }
-function save(){ try { localStorage.setItem(KEY, JSON.stringify(data)); saveOk = true; } catch (e) { saveOk = false; } }
+/* Sync needs to know what was deleted and what changed. Instead of touching every place that edits
+   the Hood, save() compares with the last save: ids that vanished get a tombstone (`gone`), and a
+   homie or crew whose details changed gets a fresh `editedAt`. Undo brings an id back and clears it. */
+const GONE_KEEP = 90 * DAY, GONE_MAX = 6000;
+function cleanGone(g){
+  const out = {}, now = Date.now();
+  if (g && typeof g === 'object') for (const [k, t] of Object.entries(g)) if (okId(k) && Number.isFinite(t) && now - t < GONE_KEEP) out[k] = t;
+  const keys = Object.keys(out);
+  if (keys.length > GONE_MAX) for (const k of keys.sort((a, b) => out[a] - out[b]).slice(0, keys.length - GONE_MAX)) delete out[k];
+  return out;
+}
+let knownIds = null, tracked = false, merging = false; // merging: a sync merge is being saved, which is not a local edit
+const detailsOf = new Map();
+function allIds(){
+  const ids = new Set();
+  for (const c of data.crews) ids.add(c.id);
+  for (const h of data.homies){ ids.add(h.id); for (const l of h.log) ids.add(l.id); for (const r of h.receipts) ids.add(r.id); }
+  for (const m of data.missions) ids.add(m.id);
+  for (const x of data.stash) ids.add(x.id);
+  return ids;
+}
+function track(){
+  const now = Date.now(), ids = allIds();
+  if (!data.gone) data.gone = {};
+  if (knownIds){
+    for (const id of knownIds) if (!ids.has(id)) data.gone[id] = data.gone[id] || now;
+    for (const id of ids) if (data.gone[id]) delete data.gone[id];
+  }
+  knownIds = ids;
+  for (const x of [...data.crews, ...data.homies]){
+    const {log, receipts, editedAt, ...rest} = x, k = JSON.stringify(rest);
+    if (tracked && !merging && detailsOf.get(x.id) !== k) x.editedAt = Math.max(now, (x.editedAt || 0) + 1);
+    detailsOf.set(x.id, k);
+  }
+  tracked = true;
+  data.gone = cleanGone(data.gone);
+}
+function save(){
+  track();
+  try { localStorage.setItem(KEY, JSON.stringify(data)); saveOk = true; } catch (e) { saveOk = false; }
+  if (onSaved) onSaved();
+}
 
 /* ---------- sound (all synthesised) ---------- */
 const Sound = (() => {
@@ -1720,8 +1766,9 @@ function menuSheet(){
     </div>
     <div class="sec">
       <div class="row" style="justify-content:space-between"><span>Sound</span><button class="btn small" data-act="sound">${prefs.sound ? '🔊 On' : '🔇 Off'}</button></div>
+      ${Sync.enabled ? `<p class="kicker">Sync</p><div class="row"><button class="btn small" id="sync-btn" data-act="sync">${Sync.user ? 'Sign out' : '☁️ Sign in to sync'}</button></div><p class="fine" id="sync-line">${esc(Sync.status)}</p>` : ''}
       <div class="row"><button class="btn small" data-act="backup">⬇️ Back up</button><button class="btn small" data-act="import">⬆️ Restore</button></div>
-      <p class="fine">${saveOk ? 'Saved on this device only. Back up now and then.' : "⚠️ Couldn't save on this device. Back up now."} Restore also takes Friend Orbit and older Homies backups.</p>
+      <p class="fine">${saveOk ? (Sync.enabled ? 'Saved on this device, and synced when you sign in. Back up now and then.' : 'Saved on this device only. Back up now and then.') : "⚠️ Couldn't save on this device. Back up now."} Restore also takes Friend Orbit and older Homies backups.</p>
     </div>`, 'Menu');
 }
 function missionSheet(){
@@ -2084,6 +2131,192 @@ function restore(text){
   toast(added || merged ? `Restored: ${added} new ${added === 1 ? 'homie' : 'homies'}${merged ? `, ${merged} updated` : ''}.` : 'Everyone in that backup is already here.');
 }
 
+/* ---------- Cloud sync (optional) ---------- */
+// Firebase's free tier: Google sign-in plus one small document per person at homies/{uid}, in the same
+// project as Mission Board and Ezycal, so one sign-in covers all three. It switches on only when
+// firebase-config.js has the project's settings. Changes from every device are merged, never overwritten:
+// homies, hits, receipts, missions and loot are joined by id, the newest edit wins for a homie's details,
+// and anything deleted stays deleted (see track()).
+const Sync = (() => {
+  const cfg = window.MISSION_BOARD_FIREBASE;
+  const FB = 'https://www.gstatic.com/firebasejs/10.12.2/';
+  const deviceId = Math.random().toString(36).slice(2, 10); // per open page, to ignore our own echoes
+  const S = {enabled: !!(cfg && cfg.apiKey), user: null, status: 'Not signed in', busy: false};
+  let auth = null, docRef = null, unsub = null, ready = false, applying = false, timer = 0, starting = false;
+
+  const setStatus = t => { S.status = t; const el = $('#sync-line'); if (el) el.textContent = t; };
+  const paintBtn = () => { const b = $('#sync-btn'); if (b){ b.textContent = S.user ? 'Sign out' : '☁️ Sign in to sync'; b.disabled = S.busy; } };
+  const who = () => (S.user && S.user.email) || 'your account';
+
+  // Join two copies of the Hood into one. Pure: takes raw objects, returns the merged fields.
+  function merge(mine, theirs){
+    const norm = d => ({
+      crews: (Array.isArray(d.crews) ? d.crews : []).map(normCrew).filter(Boolean),
+      homies: (Array.isArray(d.homies) ? d.homies : []).map(normHomie).filter(Boolean),
+      missions: (Array.isArray(d.missions) ? d.missions : []).map(normMission).filter(Boolean),
+      stash: (Array.isArray(d.stash) ? d.stash : []).filter(x => x && LOOT[x.kind] && Number.isFinite(x.at) && okId(x.id)).map(x => ({id: x.id, kind: x.kind, at: x.at, gold: !!x.gold})),
+      rests: (Array.isArray(d.rests) ? d.rests : []).filter(r => r && Number.isFinite(r.at) && Number.isFinite(r.amt)),
+      battery: d.battery && typeof d.battery.date === 'string' && Number.isFinite(d.battery.level) && Number.isFinite(d.battery.at) ? {date: d.battery.date, level: clamp(d.battery.level, 0, 100), at: d.battery.at} : null,
+      kept: Number.isFinite(d.kept) ? Math.max(0, d.kept) : 0,
+      missionsDay: typeof d.missionsDay === 'string' ? d.missionsDay : '',
+      gone: cleanGone(d.gone),
+    });
+    const a = norm(mine), b = norm(theirs);
+    const gone = {...b.gone};
+    for (const [k, t] of Object.entries(a.gone)) gone[k] = Math.max(gone[k] || 0, t);
+    const alive = x => !gone[x.id];
+    const newest = (x, y) => y && y.editedAt > x.editedAt ? y : x;
+    const joinById = (xs, ys) => { const m = new Map(); for (const x of [...xs, ...ys]) if (!m.has(x.id)) m.set(x.id, x); return [...m.values()]; };
+
+    const crews = [];
+    for (const c of joinById(a.crews, b.crews)) if (alive(c)) crews.push(newest(a.crews.find(x => x.id === c.id) || c, b.crews.find(x => x.id === c.id)));
+
+    const hm = new Map();
+    for (const h of [...a.homies, ...b.homies]){
+      if (!alive(h)) continue;
+      const mineH = a.homies.find(x => x.id === h.id), theirH = b.homies.find(x => x.id === h.id);
+      const base = mineH && theirH ? newest(mineH, theirH) : (mineH || theirH);
+      hm.set(h.id, {...base,
+        log: joinById(mineH ? mineH.log : [], theirH ? theirH.log : []).filter(alive).sort((x, y) => y.at - x.at),
+        receipts: joinById(mineH ? mineH.receipts : [], theirH ? theirH.receipts : []).filter(alive).sort((x, y) => y.at - x.at)});
+    }
+    // Names are unique in the Hood, so the same name added on two devices is the same person.
+    const remap = new Map(), byName = new Map();
+    for (const h of [...hm.values()].sort((x, y) => x.createdAt - y.createdAt || (x.id < y.id ? -1 : 1))){
+      const k = h.name.toLowerCase(), keep = byName.get(k);
+      if (!keep){ byName.set(k, h); continue; }
+      keep.log = joinById(keep.log, h.log).sort((x, y) => y.at - x.at);
+      keep.receipts = joinById(keep.receipts, h.receipts).sort((x, y) => y.at - x.at);
+      remap.set(h.id, keep.id); hm.delete(h.id);
+    }
+    const homies = [...hm.values()];
+    const homieIds = new Set(homies.map(h => h.id));
+
+    const mm = new Map();
+    for (const m of [...a.missions, ...b.missions]){
+      const o = mm.get(m.id);
+      if (!o){ mm.set(m.id, {...m}); continue; }
+      if (m.done && (!o.done || m.done < o.done)){ o.done = m.done; o.doneBy = m.doneBy; }
+      o.skipped = o.skipped || m.skipped;
+    }
+    // Each device makes its own daily missions, so the same one can turn up twice: keep a single copy.
+    const seen = new Map();
+    for (const m of [...mm.values()].sort((x, y) => (y.done ? 1 : 0) - (x.done ? 1 : 0) || (x.id < y.id ? -1 : 1))){
+      if (remap.has(m.homieId)) m.homieId = remap.get(m.homieId);
+      if (!m.auto) continue;
+      const k = [m.type, m.homieId, m.date, m.text].join('|');
+      if (seen.has(k)) mm.delete(m.id); else seen.set(k, m.id);
+    }
+    const missions = [...mm.values()].filter(m => alive(m) && (!m.homieId || homieIds.has(m.homieId))).sort((x, y) => (x.date < y.date ? -1 : x.date > y.date ? 1 : x.id < y.id ? -1 : 1)).slice(-600);
+
+    const stash = joinById(a.stash, b.stash).filter(alive).sort((x, y) => x.at - y.at).slice(-3000);
+    const rests = [...new Map([...a.rests, ...b.rests].map(r => [r.at + ':' + r.amt, r])).values()].sort((x, y) => x.at - y.at).slice(-200);
+    const battery = a.battery && b.battery ? (b.battery.at > a.battery.at ? b.battery : a.battery) : (a.battery || b.battery);
+    return {crews, homies, missions, stash, rests, battery, kept: Math.max(a.kept, b.kept), missionsDay: a.missionsDay > b.missionsDay ? a.missionsDay : b.missionsDay, gone: cleanGone(gone)};
+  }
+  // A stable fingerprint, so two devices can tell when they already agree and stop writing.
+  function canon(v){
+    if (Array.isArray(v)){
+      const xs = v.map(canon);
+      return v.length && v[0] && typeof v[0] === 'object' ? xs.sort((x, y) => { const p = JSON.stringify(x), q = JSON.stringify(y); return p < q ? -1 : p > q ? 1 : 0; }) : xs;
+    }
+    if (v && typeof v === 'object') return Object.fromEntries(Object.keys(v).sort().map(k => [k, canon(v[k])]));
+    return v;
+  }
+  const fingerprint = d => JSON.stringify(canon(merge(d, {})));
+
+  function apply(remote, quiet){
+    const before = fingerprint(data);
+    const m = merge(data, remote);
+    applying = merging = true;
+    try { Object.assign(data, m); fixCrews(); save(); } finally { applying = merging = false; }
+    const changed = fingerprint(data) !== before;
+    if (changed){ renderAll(); if (!quiet) toast('Synced from your other device.'); }
+    if (fingerprint(data) !== fingerprint(remote)) schedule(1500);
+    else setStatus(`Synced · ${who()}`);
+  }
+
+  function schedule(delay = 7000){ // a little over the 6s Undo window, so an undone hit never reaches the cloud
+    if (!ready || applying) return;
+    clearTimeout(timer);
+    timer = setTimeout(push, delay);
+    setStatus('Saving…');
+  }
+  async function push(){
+    if (!ready) return;
+    const json = JSON.stringify(data);
+    if (json.length > 900000){ setStatus('Too big to sync · back up and remove old history'); return; }
+    try { await docRef.set({data: json, device: deviceId, updatedAt: Date.now()}); setStatus(`Synced · ${who()}`); }
+    catch (e) { setStatus("Sync failed · it'll retry on your next change"); }
+  }
+  const parse = v => { try { return v && typeof v.data === 'string' ? JSON.parse(v.data) : null; } catch (e) { return null; } };
+
+  async function start(){
+    if (starting) return;
+    starting = true;
+    docRef = firebase.firestore().collection('homies').doc(S.user.uid);
+    setStatus('Syncing…');
+    const slow = setTimeout(() => { if (!ready) setStatus('Still connecting · if this stays, allow this site in your ad or tracker blocker'); }, 15000);
+    try {
+      const snap = await docRef.get();
+      clearTimeout(slow);
+      ready = true;
+      const remote = snap.exists ? parse(snap.data()) : null;
+      if (remote) apply(remote, true); else await push();
+      unsub = docRef.onSnapshot(s => {
+        if (!s.exists || (s.metadata && s.metadata.hasPendingWrites)) return;
+        const v = s.data(), r = parse(v);
+        if (!r || v.device === deviceId) return;
+        apply(r, false);
+      }, () => setStatus('Sync paused · reload to reconnect'));
+    } catch (e) {
+      clearTimeout(slow);
+      ready = false;
+      const code = (e && e.code) || 'unknown';
+      setStatus(code === 'permission-denied' ? 'Sync blocked · add the homies rule in Firestore (see README)'
+        : code === 'unavailable' ? "Can't reach the database · check your connection or ad blocker, then reload"
+        : `Sync failed (${code}) · reload to try again`);
+    } finally { starting = false; }
+  }
+  function stop(){ ready = false; clearTimeout(timer); if (unsub) unsub(); unsub = null; }
+
+  const loadScript = src => new Promise((resolve, reject) => {
+    const el = document.createElement('script');
+    el.src = src; el.onload = resolve; el.onerror = () => reject(new Error('Could not load ' + src));
+    document.head.append(el);
+  });
+  async function init(){
+    S.busy = true; paintBtn(); setStatus('Connecting…');
+    try {
+      await loadScript(FB + 'firebase-app-compat.js');
+      await loadScript(FB + 'firebase-auth-compat.js');
+      await loadScript(FB + 'firebase-firestore-compat.js');
+      firebase.initializeApp(cfg);
+      auth = firebase.auth();
+      auth.onAuthStateChanged(u => {
+        S.user = u; S.busy = false; paintBtn();
+        if (u) start(); else { stop(); setStatus('Not signed in · this device keeps its own copy'); }
+      });
+    } catch (e) { S.busy = false; paintBtn(); setStatus("Couldn't reach the sync service · tap to retry"); }
+  }
+  async function click(){
+    if (!auth){ init(); return; }
+    if (S.user){ await auth.signOut(); toast('Signed out · this device keeps its copy.'); return; }
+    const provider = new firebase.auth.GoogleAuthProvider();
+    try { await auth.signInWithPopup(provider); }
+    catch (e) {
+      const code = (e && e.code) || '';
+      if (code === 'auth/popup-blocked' || code === 'auth/operation-not-supported-in-this-environment') auth.signInWithRedirect(provider);
+      else if (code !== 'auth/popup-closed-by-user' && code !== 'auth/cancelled-popup-request') toast("Sign-in didn't finish.");
+    }
+  }
+  if (S.enabled){
+    onSaved = () => schedule();
+    setTimeout(init, 800); // after the first paint
+  }
+  return Object.assign(S, {click, merge, fingerprint, paintBtn});
+})();
+
 /* ---------- Mission Possible bridge (inside the board via ?embed=1) ---------- */
 // Inside Mission Possible Plus: work out which part of The Hood is actually on screen (the frame can be
 // taller than the screen, and the Plus top bar covers its top), and keep sheets and pop-ups in there.
@@ -2227,6 +2460,7 @@ document.addEventListener('click', e => {
     case 'mission-skip': { const m = data.missions.find(x => x.id === v); if (m){ m.skipped = true; save(); renderAll(); toast('Mission skipped. No pressure.', {undo: () => { m.skipped = false; save(); renderAll(); }}); } break; }
     case 'copy': copyText(t.dataset.text || '').then(ok => toast(ok ? 'Copied. Paste it in your messages.' : "Couldn't copy. You can select the text instead.")); break;
     case 'sound': prefs.sound = !prefs.sound; savePrefs(); Sound.play('tap'); menuSheet(); break;
+    case 'sync': Sync.click(); break;
     case 'backup': backup(); break;
     case 'import': $('#import-file').click(); break;
     case 'undo': { const u = toastUndo; $('#toast').hidden = true; toastUndo = null; if (u) u(); break; }
